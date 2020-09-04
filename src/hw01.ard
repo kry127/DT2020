@@ -18,40 +18,81 @@
    second' = flip (second 0)
 -}
 
+\func second (_ y _ : Nat) => y
+\func apply (f : Nat -> Nat) (x : Nat) => f x
+\func compose (f g : Nat -> Nat) (x : Nat) => f (g x)
+\func flip (f : Nat -> Nat -> Nat) (x y : Nat) => f y x
+\func second' => flip (second 0)
+
 -- 3. Расставьте приоритеты функций f1, f2, f3, f4, f5 и f6 так, чтобы функция test проходила тайпчекинг.
 
 \import lect01 \hiding (+,*)
 
-\func f1 (x y : Nat) => x
+\func \fix 9 f1 (x y : Nat) => x
 \func f2 : Nat => 0
-\func f3 (f : Nat -> Nat) (z : Nat) : Int => 0
+\func \infixl 6 f3 (f : Nat -> Nat) (z : Nat) : Int => 0
 \func f4 : Nat => 0
-\func f5 => f1
+\func \infixl 9 f5 => f1
 \func f6 => f4
 
 \func test => f1 f2 f3 f4 f5 f6
 
 -- 4. Определите функцию if, аналогичную следующей функции:
 {- Haskell:
-   if :: Bool -> a -> a -> a
+   if :: Bool -> Bool -> Bool -> Bool
    if True t _ = t
    if False _ e = e
 -}
+-- Не удержался от полиморфизма...
+\func if' (cond : Bool) (t e : Bool) : Bool \elim cond
+  | false => t
+  | true => e
 
 -- 5. Определите || через if.
 
-\func \infixr 2 || (x y : Bool) : Bool => {?}
+\func \infixr 2 || (x y : Bool) : Bool => if' x x y
 
 -- 6. Определите возведение в степень и факториал для натуральных чисел.
 
 \open Nat \hiding (-,div) -- Здесь лежат + и *.
 
-\func \infixr 8 ^ (x y : Nat) => {?}
+\func \infixr 8 ^ (x y : Nat) : Nat \elim y
+  | 0     => 1
+  | suc t => x * (x ^ t)
 
-\func fac (x : Nat) => {?}
+\func fac (x : Nat) : Nat \elim x
+  | 0     => 1
+  | suc t => (suc t) * (fac t)
 
 -- 7. Определите mod и gcd.
 
-\func mod (x y : Nat) => {?}
+\func mod (x y : Nat) : Nat \elim y
+  | 0 => 0
+  | z => mod' x x z
+  \where
+    \func mod' (f x y : Nat) : Nat \elim f
+      | 0 => 0
+      | suc s => if (x < y) x (mod' s (x - y) y)
 
-\func gcd (x y : Nat) => {?}
+\func gcd (x y : Nat) => if (x < y) (gcd' y y x) (gcd' x x y)
+  \where
+    \func gcd' (f x y : Nat) : Nat \elim f
+      | 0 => 0
+      | suc fuel => \case (mod x y, y) \with {
+          | (0, 0) => x
+          | (0, y) => y
+          | (t, _) => gcd' fuel y t
+        }
+
+\func modTest1 : mod 100 5 = 0 => idp
+\func modTest2 : mod 33 17 = 16 => idp
+\func modTest3 : mod 1000 37 = 1 => idp
+
+\func gcdTest1 : gcd 20 5 = 5 => idp
+\func gcdTest2 : gcd 20 4 = 4 => idp
+\func gcdTest3 : gcd 0 0 = 0 => idp
+\func gcdTest4 : gcd 0 10 = 10 => idp
+\func gcdTest5 : gcd 2 5 = 1 => idp
+\func gcdTest6 : gcd 120 105 = 15 => idp
+\func gcdTest7 : gcd 105 120 = 15 => idp
+\func gcdTest8 : gcd 1 120 = 1 => idp
