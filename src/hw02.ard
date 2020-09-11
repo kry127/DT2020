@@ -28,17 +28,12 @@
   | nil => nil
   | cons x xs => insert cmp x (insertion-sort cmp xs)
     \where
-      \func insert {A : \Type} (cmp : A -> A -> Bool) (x : A) (xs : List(A)) : List(A) => insert' cmp x nil xs
-      \func insert' {A : \Type} (cmp : A -> A -> Bool) (x : A) (lxs xs : List(A)) : List(A) \elim xs
-        | nil => reverse lxs ++ cons x nil
+      \func insert {A : \Type} (cmp : A -> A -> Bool) (x : A) (xs : List(A)) : List(A) \elim xs
+        | nil => cons x nil
         | cons y ys => \case cmp x y \with {
-          | true => insert' cmp x (cons y lxs) ys
-          | false => reverse lxs ++ cons x nil ++ (cons y ys)
+          | true => cons x (cons y ys)
+          | false => cons y (insert cmp x ys)
         }
-      \func reverse {A : \Type} (l : List(A)) : List(A) => reverse' nil l
-      \func reverse' {A : \Type} (l r : List(A)) : List(A) \elim r
-        | nil => l
-        | cons x xs => reverse' (cons x l) xs
 
 -- протестируем сортировку
 \func num-cmp (a b : Nat) : Bool
@@ -50,10 +45,12 @@
 \func insertion-nat-sort => insertion-sort {Nat} num-cmp
 \func insertion-sort-test1 : insertion-nat-sort nil = nil => idp
 \func insertion-sort-test2 : insertion-nat-sort (cons 1 nil) = (cons 1 nil)  => idp
-\func insertion-sort-test3 : insertion-nat-sort (cons 3 (cons 2 (cons 1 nil))) = (cons 3 (cons 2 (cons 1 nil))) => idp
-\func insertion-sort-test4 : insertion-nat-sort (cons 1 (cons 2 (cons 3 nil))) = (cons 3 (cons 2 (cons 1 nil))) => idp
+\func insertion-sort-test3 : insertion-nat-sort (cons 3 (cons 2 (cons 1 nil))) = (cons 1 (cons 2 (cons 3 nil))) => idp
+\func insertion-sort-test4 : insertion-nat-sort (cons 1 (cons 2 (cons 3 nil))) = (cons 1 (cons 2 (cons 3 nil))) => idp
 \func insertion-sort-test5 : insertion-nat-sort (cons 4 (cons 1 (cons 2 (cons 5 (cons 3 nil))))) =
-                                                (cons 5 (cons 4 (cons 3 (cons 2 (cons 1 nil))))) => idp
+                                                (cons 1 (cons 2 (cons 3 (cons 4 (cons 5 nil))))) => idp
+\func insertion-sort-test6 : insertion-nat-sort (cons 4 (cons 1 (cons 6 (cons 2 (cons 5 (cons 3 nil)))))) =
+                                                (cons 1 (cons 2 (cons 3 (cons 4 (cons 5 (cons 6 nil)))))) => idp
 
 
 -- 3. Докажите ассоциативность && и ||.
