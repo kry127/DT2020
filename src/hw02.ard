@@ -1,5 +1,6 @@
 \import Utils
 \import hw01 (fac)
+\import lect01(< \as <1)
 
 -- 1. Определите полиморфный tail для списков.
 \func tail {A : \Type} (xs : List(A)) : List(A) \elim xs
@@ -7,6 +8,8 @@
   | cons x xs => xs
 
 -- 2. Реализуйте любой (but choose wisely) алгоритм сортировки. Функцию сравнения можно принимать в качестве аргумента.
+{-
+-- не уменьшается структурно:
 \func split-sort {A : \Type}  (cmp : A -> A -> Bool) (xs : List(A)) : List(A) \elim xs
   | nil => nil
   | cons x xs => \case split {A} cmp x nil nil xs \with {
@@ -19,6 +22,39 @@
         | true => split cmp splitter (cons x acc_left) acc_right xs
         | false => split cmp splitter acc_left (cons x acc_right) xs
       }
+ -}
+
+\func insertion-sort {A : \Type} (cmp : A -> A -> Bool) (xs : List(A)) : List(A) \elim xs
+  | nil => nil
+  | cons x xs => insert cmp x (insertion-sort cmp xs)
+    \where
+      \func insert {A : \Type} (cmp : A -> A -> Bool) (x : A) (xs : List(A)) : List(A) => insert' cmp x nil xs
+      \func insert' {A : \Type} (cmp : A -> A -> Bool) (x : A) (lxs xs : List(A)) : List(A) \elim xs
+        | nil => reverse lxs ++ cons x nil
+        | cons y ys => \case cmp x y \with {
+          | true => insert' cmp x (cons y lxs) ys
+          | false => reverse lxs ++ cons x nil ++ (cons y ys)
+        }
+      \func reverse {A : \Type} (l : List(A)) : List(A) => reverse' nil l
+      \func reverse' {A : \Type} (l r : List(A)) : List(A) \elim r
+        | nil => l
+        | cons x xs => reverse' (cons x l) xs
+
+-- протестируем сортировку
+\func num-cmp (a b : Nat) : Bool
+  | 0, 0 => false
+  | 0, suc y => true
+  | suc x, 0 => false
+  | suc x, suc y => x `num-cmp y
+
+\func insertion-nat-sort => insertion-sort {Nat} num-cmp
+\func insertion-sort-test1 : insertion-nat-sort nil = nil => idp
+\func insertion-sort-test2 : insertion-nat-sort (cons 1 nil) = (cons 1 nil)  => idp
+\func insertion-sort-test3 : insertion-nat-sort (cons 3 (cons 2 (cons 1 nil))) = (cons 3 (cons 2 (cons 1 nil))) => idp
+\func insertion-sort-test4 : insertion-nat-sort (cons 1 (cons 2 (cons 3 nil))) = (cons 3 (cons 2 (cons 1 nil))) => idp
+\func insertion-sort-test5 : insertion-nat-sort (cons 4 (cons 1 (cons 2 (cons 5 (cons 3 nil))))) =
+                                                (cons 5 (cons 4 (cons 3 (cons 2 (cons 1 nil))))) => idp
+
 
 -- 3. Докажите ассоциативность && и ||.
 
@@ -62,13 +98,28 @@
 -- 7. Докажите следующие утверждения.
 
 -- s1 : Если для любого x : Nat верно P(x), то существует x : Nat для которого P(x) верно.
-\func s1 (P : Nat -> \Type) (h : \Pi (x : Nat) -> P x) : \Sigma (x : Nat) (P x) => {?}
+\func s1 (P : Nat -> \Type) (h : \Pi (x : Nat) -> P x) : \Sigma (x : Nat) (P x) => (0, h 0)
 
 -- s2 : Если не существует x : Nat такого, что верно P(x), то P(3) не верно.
-\func s2 (P : Nat -> \Type) (h : \Sigma (x : Nat) (P x) -> Empty) : P 3 -> Empty => {?}
+\func s2 (P : Nat -> \Type) (h : \Sigma (x : Nat) (P x) -> Empty) : P 3 -> Empty =>
+  \lam (p3 : P 3) => h (3, p3)
 
 -- 8. Сформулируйте и докажите следующие утверждения.
 
 -- s3 : Если для всех x : Nat верно, что P(x) влечет Q(x), и существует x : Nat для которого верно P(x), то существует x : Nat для которого верно Q(x).
+\func s3 (P Q : Nat -> \Type) (f : \Pi (x : Nat) (P x) -> (Q x)) (g : \Sigma (x : Nat) (P x)) : (\Sigma (x : Nat) (Q x))
+  \elim g -- засвидетельствуем, для какого x выполняется P, т.е. x_existent -- свидетель выполнения одноместного предиката P
+    | (x_existent, x_pred) => (x_existent, f x_existent x_pred)
 
 -- s4 : Если для всех x : Nat либо не верно P(x), либо не верно Q(x), то P(3) влечет, что Q(3) не верно.
+\func s4 (P Q : Nat -> \Type) (f : \Pi (x : Nat) -> (Either ((P x) -> Empty) ((Q x) -> Empty))) : P 3 -> (Q 3 -> Empty) =>
+  \case f 3 \with {
+    | inl a => (\lam (p3 : P 3) (q3 : Q 3) => a p3)
+    | inr b => (\lam (p3 : P 3) (q3 : Q 3) => b q3)
+  }
+-- можно было применить теорему о дедукции, было бы меньше кода:
+\func s4' (P Q : Nat -> \Type) (f : \Pi (x : Nat) -> (Either ((P x) -> Empty) ((Q x) -> Empty))) (p3 : P 3) : (Q 3 -> Empty) =>
+  \case f 3 \with {
+    | inl a => (\lam (q3 : Q 3) => a p3)
+    | inr b => (\lam (q3 : Q 3) => b q3)
+  }
