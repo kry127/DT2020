@@ -1,33 +1,63 @@
 \import Utils
+\import hw01 (fac)
 
 -- 1. Определите полиморфный tail для списков.
+\func tail {A : \Type} (xs : List(A)) : List(A) \elim xs
+  | nil => nil
+  | cons x xs => xs
 
 -- 2. Реализуйте любой (but choose wisely) алгоритм сортировки. Функцию сравнения можно принимать в качестве аргумента.
+\func split-sort {A : \Type}  (cmp : A -> A -> Bool) (xs : List(A)) : List(A) \elim xs
+  | nil => nil
+  | cons x xs => \case split {A} cmp x nil nil xs \with {
+    | pair =>  split-sort {A} cmp pair.1 ++ (cons x nil) ++ split-sort {A} cmp pair.2
+  }
+  \where
+    \func split {A : \Type} (cmp : A -> A -> Bool) (splitter : A) (acc_left acc_right xs : List(A)) : \Sigma (List A) (List A) \elim xs
+      | nil => (acc_left, acc_right)
+      | cons x xs => \case cmp splitter x \with {
+        | true => split cmp splitter (cons x acc_left) acc_right xs
+        | false => split cmp splitter acc_left (cons x acc_right) xs
+      }
 
 -- 3. Докажите ассоциативность && и ||.
 
-\func &&-assoc (x y z : Bool) : (x && y) && z = x && (y && z) => {?}
+\func &&-assoc (x y z : Bool) : (x && y) && z = x && (y && z) \elim x
+  | true => idp
+  | false => idp
 
-\func ||-assoc (x y z : Bool) : (x || y) || z = x || (y || z) => {?}
+\func ||-assoc (x y z : Bool) : (x || y) || z = x || (y || z) \elim x
+  | true => idp
+  | false => idp
 
 -- 4. Докажите, что fac 3 равно 6.
+\func facTest1 : fac 3 = 6 => idp
 
 -- 5. Докажите следующие пропозициональные тавтологии (choose 2 out of 3).
 
 -- t1 : (P and Q -> R) -> P -> Q -> R
-\func t1 {P Q R : \Type} (f : \Sigma P Q -> R) (p : P) (q : Q) : R => {?}
+\func t1 {P Q R : \Type} (f : \Sigma P Q -> R) (p : P) (q : Q) : R => f (p, q)
 
 -- t2 : (P -> R) -> (Q -> R) -> P or Q -> R
-\func t2 {P Q R : \Type} (f : P -> R) (g : Q -> R) (h : Either P Q) : R => {?}
+\func t2 {P Q R : \Type} (f : P -> R) (g : Q -> R) (h : Either P Q) : R => \case h \with {
+  | inl a => f a
+  | inr b => g b
+}
+
 
 -- t3 : ((P -> Q -> R) -> P) -> (P -> R) -> R
-\func t3 {P Q R : \Type} (f : (P -> Q -> R) -> P) (g : P -> R) : R => {?}
+\func t3 {P Q R : \Type} (f : (P -> Q -> R) -> P) (g : P -> R) : R => g (f (\lam p q => g p))
 
 -- 6. Сформулируйте и докажите следующие пропозициональные тавтологии (choose 2 out of 3).
 
 -- t4 : (P -> Q -> R) -> P and Q -> R
+\func t4 {P Q R : \Type} (f : P -> Q -> R) (p : \Sigma P Q) : R => f p.1 p.2
 -- t5 : (P or Q -> P and Q) -> (P -> Q) and (Q -> P)
+\func t5 {P Q : \Type} (f : Either P Q -> \Sigma P Q) : \Sigma (P -> Q) ( Q -> P) =>
+  (\lam (p : P) => (f (inl p)).2, \lam (q : Q) => (f (inr q)).1)
 -- t6 : ((((P -> Q) -> P) -> P) -> Q) -> Q
+\func t6 {P Q : \Type} (fff : (((P -> Q) -> P) -> P) -> Q) : Q => fff (\lam (ff : (P -> Q) -> P)  =>
+                                                                      ff (\lam (p : P) => fff (\lam (ff' : ((P -> Q) -> P)) => p)))
 
 -- 7. Докажите следующие утверждения.
 

@@ -1,0 +1,89 @@
+\import lect01 \hiding (*, +, -, div)
+
+\func id(A : \Type) (a : A) => a
+
+-- id : \Type -> A -> A
+\func idEx => id Nat 0
+
+\func idEx' => id Int (-1)
+
+\func idType : \Pi (A : \Type) -> A -> A => id
+{- Haskell:
+   idType :: a -> a
+   idType = id
+ -}
+
+\func idTest => id _ 0
+
+-- для неявной передачи типа:
+\func id' {A : \Type} (a : A) => a
+
+\func id'Test => id' 0
+\func id'Test' => id' {Nat} 0 -- неявные параметры можно передать явно
+
+\open Nat
+
+-- пример
+\func example' {n : Nat} (p : n + n = 3) => 0
+
+\func test1 : example' {4} (pp : 8 = 3) => idp
+
+\func pair : \Sigma Nat Nat => (1, 2)
+
+\func projSum(p : \Sigma Nat Nat) => p.1 + p.2
+
+\func projSum' (p : \Sigma Nat Nat) : Nat
+  | (x,y) => x + y
+
+\func dependentExample => \Sigma (A : \Type) A
+\func dependentExample1 : dependentExample => (Nat, 0)
+\func dependentExample2 : dependentExample => (Int, -1)
+\func dependentExample3 : dependentExample => (Nat -> Nat, id')
+-- (Nat,0)
+-- (Int,-1)
+-- (Nat -> Nat, id')
+
+\func unit'' : \Sigma => ()
+
+-- пример утверждений и доказательств
+
+\func AimpliesA {A : \Type} : A -> A => id'
+
+\func example_ {A B C : \Type} (f : A -> B) (g : B -> C) : A -> C
+  => \lam x => g (f x)
+
+-- примеры с предикатом "равенство"
+\func \infix 5 == (x y : Bool) : Bool
+  | true, true => true
+  | false, false => true
+  | _, _ => false
+
+\data Empty
+
+\func T (b : Bool) : \Type
+  | true => \Sigma
+  | false => Empty
+
+-- утверждение T (not (not x) == x)
+\func not-isInvolution (x : Bool) : T (not (not x) == x)
+  | true => ()
+  | false => ()
+
+\func ==-refl(x : Bool) : T (x == x)
+  | true => ()
+  | false => ()
+
+-- для любого x из Bool существует y из Bool такой, что x == y
+\func lemma (x : Bool) : \Sigma (y : Bool) (T (x == y)) => (x, ==-refl x)
+
+
+
+
+-- тип равенств
+\func idpExample : 1 + 1 = 2 => idp
+\func idpExample' (x : Nat) : x + 1 = suc x => idp
+-- \func idpExample' (x : Nat) : 1 + x = suc x => idp
+
+\func not-isInvolution_ (x : Bool) : not (not x) = x
+  | true => idp
+  | false => idp
