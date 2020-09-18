@@ -1,0 +1,228 @@
+\import Utils
+\open Nat \hiding (<=)
+
+-- 1. Синонимы типов.
+
+-- В языке с зависимыми типами не нужны синонимы типов, т.к. мы можем просто определить функцию, возвращающую нужный тип.
+\func NatList => List Nat
+{- Haskell:
+   type NatList = List Nat
+-}
+
+-- 2. Пространства имен и модули.
+
+-- \where в отличии от хаскелла относится не к отдельной клозе, а ко всему определению.
+\func fff (x : Nat) => ggg
+  \where {
+    \func ggg => 0
+      \where {
+        \func hhh => 0
+      }
+  }
+-- Функции, определенные в \where, почти ничем не отличаются от обычных функций.
+-- Единственное отличие заключается в том, что они находятся в другом пространстве имен.
+\func hhhTest => fff.ggg.hhh
+
+-- Сноска
+-- Можно использовать \let, который несколько проще, чем в хаскелле.
+-- В arend нельзя определять рекурсивные функции в \let и переменные могут ссылаться только на предыдущие переменные.
+\func letExample (p : \Sigma Nat Nat) =>
+  \let | x => 1
+       | y => x + x
+       | (a,b) => p
+  \in x + y * y + a * b
+
+-- Модули используются для группирования определений.
+\module M1 \where {
+  \func f => 82
+  \func g => 77
+  \func h => 25
+}
+
+-- Определения f, g и h недоступны в текущем простраснтве имен.
+-- К ним нужно обращаться через M1.
+\func moduleTest => (M1.f,M1.g,M1.h)
+
+\module M2 \where {
+  -- Если открыть модуль, то можно обращаться к его содержимому напрямую.
+  \open M1
+  \func t => f
+  \func t' => g
+  \func t'' => h
+}
+
+\module M3 \where {
+  -- Можно открыть только часть определений в модуле.
+  \open M1(f,g)
+  \func t => f
+  \func t' => g
+  \func t'' => M1.h -- К остальным определениям всё ещё можно доступаться по полному имени.
+}
+
+\module M4 \where {
+  -- Каждому определению тоже соответствует модуль.
+  \func functionModule => 34
+    \where {
+      \func f1 => 42
+      \func f2 => 61
+      \func f3 => 29
+    }
+  \func t => functionModule.f1
+  \func t' => functionModule.f2
+  \func t'' => (f1, f3)
+    \where \open functionModule(f1,f3) -- данный \open относится ко всему, что объявленно в \where-блоке для t'', а также к самому t''.
+}
+
+\module M5 \where {
+  -- Если определения в двух модулях повторяются, то можно их либо скрыть, либо переименовать.
+  \open M2 \hiding (t') -- открыть все определения кроме t'
+  \open M3 (t \as M3_t) -- открыть только t, переименовав в M3_t.
+  \open M4 \using (t \as M4_t) -- открыть все определения, переименовав t в M4_t.
+  \func t'' => (M3_t, M4_t, t', t, functionModule, functionModule.f1, functionModule.f2, functionModule.f3)
+  \func t''' => (t'', M2.t'', M4.t'') -- t'' в текущем модуле перекрывает t'' из M2 и M4, но к ним всё ещё можно доступаться по полному имени.
+}
+
+-- \import X делает файл X видимым в текущем файле.
+-- Также \import делает \open.
+-- Все конструкции, которые есть для \open, также доступны для \import.
+
+\import Test (foobar \as foobar', foobar3)
+\import TestDir.Test
+-- Если нужно только сделать файл видимым, но не открывать его содержимое, можно использовать следующую конструкцию:
+\import TestDir.Test2()
+
+\func fileTest => (foobar, foobar', Test.foobar1, Test.foobar2, Test.foobar3, TestDir.Test2.foobar)
+
+-- 3. \elim или \case?
+
+-- Функции f и f' эквивалентны, но в данной ситуации лучше использовать f', так как выражение вида f' n является нормальной формой, а выражение f n раскрывается в определение f, что менее удобно.
+\func f (x : Nat) : Nat => \case x \with { zero => 0 | suc n => n }
+\func f' (x : Nat) : Nat \elim x
+  | zero => 0
+  | suc n => n
+\func g (n : Nat) => f' (n + n)
+
+-- 4. Рекурсивное определение vec, head, tail.
+
+\func vec (A : \Type) (n : Nat) : \Type \elim n
+  | 0 => \Sigma
+  | suc n => \Sigma A (vec A n)
+
+\func head {A : \Type} (n : Nat) (xs : vec A (suc n)) => xs.1
+
+\func tail {A : \Type} (n : Nat) (xs : vec A (suc n)) => xs.2
+
+-- 5. Индуктивное определиние Vec, head, tail, append, length.
+
+\data Vec (A : \Type) (n : Nat) \elim n
+  | 0 => vnil
+  | suc n => vcons A (Vec A n)
+
+-- Конструкторы принимают параметры типа данных в качестве неявных аргументов.
+\func emptyVec => vnil {Nat}
+
+\func nonEmptyVec => vcons {Nat} {1} 100 (vcons {Nat} {0} 101 vnil)
+
+\func Head {A : \Type} {n : Nat} (xs : Vec A (suc n)) : A \elim xs
+  | vcons a xs => a
+
+\func Tail {A : \Type} {n : Nat} (xs : Vec A (suc n)) : Vec A n \elim xs
+  | vcons a xs => xs
+
+\func first {A : \Type} {n : Nat} (xs : Vec A n) : Maybe A \elim n, xs
+  | 0, vnil => nothing
+  | suc n, vcons a xs => just a
+
+\func append {A : \Type} {n m : Nat} (xs : Vec A n) (ys : Vec A m) : Vec A (m + n) \elim n, xs
+  | 0, vnil => ys
+  | suc n, vcons a xs => vcons a (append xs ys)
+
+-- Очень полезная функция.
+\func Vec-length {A : \Type} {n : Nat} (xs : Vec A n) => n
+
+-- 6. Fin, toNat, lookup.
+
+-- Тип n-элементных множеств можно определить различными способами.
+-- Например, мы можем определить его как подтип натуральных чисел:
+-- \func fin (n : Nat) => \Sigma (x : Nat) (T (x < n))
+
+\func Fin' (n : Nat) : \Set0
+  | 0 => Empty
+  | suc n => Maybe (Fin' n)
+
+-- Еще его можно определить индуктивно:
+\data Fin (n : Nat) \with
+  | suc n => { | fzero | fsuc (Fin n) }
+
+-- Fin 0 -- пустой тип.
+\func Fin-absurd {A : \Type} (x : Fin 0) : A
+
+\func fin0 : Fin 3 => fzero
+\func fin1 : Fin 3 => fsuc fzero
+\func fin2 : Fin 3 => fsuc (fsuc fzero)
+-- \func fin3 : Fin 3 => fsuc (fsuc (fsuc fzero))
+
+-- В Fin 3 не более 3 элементов.
+\func atMost3 (x : Fin 3) : Either (x = fin0) (Either (x = fin1) (x = fin2))
+  | fzero => inl idp
+  | fsuc fzero => inr (inl idp)
+  | fsuc (fsuc fzero) => inr (inr idp)
+  | fsuc (fsuc (fsuc ()))
+
+-- Fin 3 has at least 3 elements.
+\func atLeast3 (p : fin0 = fin1) : Empty
+
+\func atLeast3' (p : fin0 = fin2) : Empty
+
+\func atLeast3'' (p : fin1 = fin2) : Empty
+
+\func toNat {n : Nat} (x : Fin n) : Nat \elim n, x
+  | suc n, fzero => zero
+  | suc n, fsuc x => suc (toNat x)
+
+-- Безопасный lookup.
+\func lookup {A : \Type} {n : Nat} (xs : Vec A n) (i : Fin n) : A \elim n, xs, i
+  | suc n, vcons a xs, fzero => a
+  | suc n, vcons a xs, fsuc i => lookup xs i
+
+-- 7. Data types may use non-structural recursion.
+
+\data Vec' (A : \Type) (n : Nat) \elim n
+  | 0 => vnil'
+  | suc n => vcons' A (Vec' A (suc n))
+
+\func Vec'-unique {A X : \Type} {n : Nat} (xs : Vec' A (suc n)) : X \elim xs
+  | vcons' a xs => Vec'-unique xs
+
+-- 8. Еще примеры утверждений и доказательств: ассоциативность сложения натуральных чисел, инволютивность reverse.
+
+-- Принцип конгруэнтности
+-- \func pmap {A B : \Type} (f : A -> B) {a a' : A} (p : a = a') : f a = f a' => ...
+
+\func +-assoc (n m k : Nat) : (n + m) + k = n + (m + k) \elim k
+  | 0 => idp
+  | suc k => pmap suc (+-assoc n m k)
+
+-- 9. Симметричность, транзитивность, принцип Лейбница, pmap через него.
+
+-- Принцип Лейбница говорит, что если a и a' обладают одними и теми же свойствами, то они равны.
+-- Его легко доказать.
+\func Leibniz {A : \Type} {a a' : A}
+              (f : \Pi (P : A -> \Type) -> \Sigma (P a -> P a') (P a' -> P a)) : a = a'
+  => (f (a =)).1 idp
+
+-- Обратный принцип Лейбница (который мы тоже будем называть принципом Лейбница) говорит, что если a = a', то они обладают одними и теми же свойствами, т.е. если верно B a, то верно B a'.
+-- \func transport' {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a'
+
+-- Используя принцип Лейбница, легко доказать (почти) все свойства равенства.
+-- Симметричность
+\func sym' {A : \Type} {a a' : A} (p : a = a') : a' = a
+  => transport (`= a) p idp
+
+-- Транзитивность
+\func trans {A : \Type} {a a' a'' : A} (p : a = a') (q : a' = a'') : a = a''
+  => transport (a =) q p
+
+-- Конгруэнтность
+\func pmap' {A B : \Type} (f : A -> B) {a a' : A} (p : a = a') : f a = f a'
+  => transport (\lam x => f a = f x) p idp
