@@ -8,50 +8,108 @@
   | suc x, 0 => false
   | suc x, suc y => x < y
 
-\func lookup => {?}
+-- Ухх, как я сильно намучился с этой функцией!!!
+\func lookup {A : \Type} (xs : List A) (n : Nat) {proof : T (n < length xs)} : A \elim xs, n, proof
+  | nil, 0, () -- это вроде как означает, что proof не существует, тело реализовывать не надо
+  | cons a as, 0, _ => a
+  | cons a as, suc n, proof => lookup {A} as n {proof}
+
+\func lookupTest : lookup (cons 1 (cons 2 nil)) 1 {()} = 2 => idp
+\func lookupTestFail : lookup (cons 1 (cons 2 nil)) 2 {()} = 2 => idp -- out of bounds
 
 -- 2. Реализуйте аналоги функции replicate для vec и Vec (эта функция создает список заданной длины, состоящий из повторений данного элемента).
+\func replicate' {A : \Type} (x : A) (n : Nat) : vec A n \elim n
+  | 0 => ()
+  | suc n => (x, (replicate' x n))
+
+\func replicate {A : \Type} (x : A) (n : Nat) : Vec A n \elim n
+  | 0 => vnil
+  | suc n => vcons x (replicate x n)
 
 -- 3. Реализуйте аналоги функции map для vec и Vec.
+
+\func map' {A B : \Type} {n : Nat} (f : A -> B) (xs : vec A n) : vec B n \elim n, xs
+  | 0, () => ()
+  | suc n, (a, xs) => ((f a), (map' f xs))
+
+\func map {A B : \Type} {n : Nat} (f : A -> B) (xs : Vec A n) : Vec B n \elim n, xs
+  | 0, vnil => vnil
+  | suc n, vcons a xs => vcons (f a) (map f xs)
 
 -- 4. Реализуйте аналоги функции zipWith для vec и Vec.
 --    Функция должна принимать вектора одинаковой длины.
 
+\func zipWith' {A B C : \Type} {n : Nat} (f : A -> B -> C) (xs : vec A n) (ys : vec B n) : vec C n \elim n, xs, ys
+  | 0, (), () => ()
+  | suc n, (a, xs), (b, ys) => ((f a b), zipWith' f xs ys)
+
+\func zipWith {A B C : \Type} {n : Nat} (f : A -> B -> C) (xs : Vec A n) (ys : Vec B n) : Vec C n \elim n, xs, ys
+  | 0, vnil, vnil => vnil
+  | suc n, vcons a xs, vcons b ys => vcons (f a b) (zipWith f xs ys)
+
 -- 5. Определите конгруэнтность для функций двух аргументов через transport.
 --    Можно использовать любые функции, определенные через transport.
 
-\func pmap2 {A B C : \Type} (f : A -> B -> C) {a a' : A} (p : a = a') {b b' : B} (q : b = b') : f a b = f a' b' => {?}
+\func pmap2 {A B C : \Type} (f : A -> B -> C) {a a' : A} (p : a = a') {b b' : B} (q : b = b') : f a b = f a' b' =>
+    \case transport (\lam (t : B)=> f a b = f a t) q idp \with {
+      y => transport (\lam (t : A)=> f a b = f t b') p y
+    }
 
 -- 6. Докажите, что transport выражается через pmap и repl и наоборот.
 
 -- repl говорит, что если у нас есть два равных типа, то у нас есть функция из одного во второй.
 -- Определите repl через transport.
 
-\func repl {A B : \Type} (p : A = B) (a : A) : B => {?}
+\func repl {A B : \Type} (p : A = B) (a : A) : B => transport (\lam (t : \Type)  => t) p a
 
 -- Определите transport через repl и pmap.
-
-\func transport' {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a' => {?}
+-- pmap       {A B : \Type} (f : A -> B)     {a a' : A} (p : a = a')           : f a = f a'
+-- transport' {A   : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a'
+\func transport' {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a' =>
+  repl (pmap B p) b
 
 -- 7. Определите тип CTree A n полных бинарных деревьев высоты ровно n, которые хранят элементы только во внутренних узлах, но не в листьях.
 --    Высота листа равна 0.
 
-\data CTree (A : \Type) (n : Nat)
+\data CTree (A : \Type) (n : Nat) \elim n
+  | 0 => CLeaf
+  | suc n => CNode A (CTree A n) (CTree A n)
+
 
 -- 8. Определите тип Tree A n бинарных деревьев высоты не больше n, которые хранят элементы только во внутренних узлах, но не в листьях.
 --    Высота листа равна 0.
 
-\data Tree (A : \Type) (n : Nat)
+\data Tree (A : \Type) (n : Nat) \elim n
+  | suc n => {| Leaf | Node A (Tree A n) (Tree A n)}
 
 -- определите функцию, возвращающую высоту дерева.
 
-\func height {A : \Type} (n : Nat) (t : Tree A n) : Fin (suc n) => {?}
+\func height {A : \Type} {n : Nat} (t : Tree A n) : Fin (suc n)
+  | {A}, {suc n}, Leaf => fzero
+  | {A}, {suc n}, Node a x1 x2 => fsuc (maxFin (height {A} {n} x1) (height {A} {n} x2))
+  \where
+    \func maxFin {n : Nat} (a : Fin (suc n)) (b : Fin (suc n)) : Fin (suc n) => \case toNat a < toNat b \with {
+      | true => b
+      | false => a
+    }
+
+\func treeExample1 => Node {Nat} {2} 1 (Node 2 Leaf (Node 3 Leaf Leaf)) (Leaf) -- specified wrong height
+\func treeExample2 => Node {Nat} {3} 1 (Node 2 Leaf (Node 3 Leaf Leaf)) (Leaf)
+\func treeExample3 => Node {Nat} {9} 1 (Node 2 Leaf (Node 3 Leaf Leaf)) (Leaf) -- overestimated tree height
+
+\func treeTest1 : toNat(height treeExample2) = 3 => idp
+\func treeTest2 : toNat(height treeExample3) = 3 => idp
+
 
 -- 9. Чему равно fileTest (в нормальной форме)? Докажите это.
 
+\func fileTestTest : fileTest = (17,8,13,55,18,21) => idp
+
 -- 10. Чему равно M5.t''' (в нормальной форме)? Докажите это.
+\func m5dott'''Test : M5.t''' = ((82,42,61,82,34,42,61,29), 25, (42, 29)) => idp
 
 \import Utils
+\import lect01 ()
 \import lect03 \hiding (Vec,vnil,vcons)
 
 -- Optional task

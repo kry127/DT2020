@@ -217,7 +217,8 @@
 -- Используя принцип Лейбница, легко доказать (почти) все свойства равенства.
 -- Симметричность
 \func sym' {A : \Type} {a a' : A} (p : a = a') : a' = a
-  => transport (`= a) p idp
+  => transport (\lam t => t = a) p idp
+  -- => transport (`= a) p idp
 
 -- Транзитивность
 \func trans {A : \Type} {a a' a'' : A} (p : a = a') (q : a' = a'') : a = a''
