@@ -11,11 +11,12 @@
 -- Ухх, как я сильно намучился с этой функцией!!!
 \func lookup {A : \Type} (xs : List A) (n : Nat) {proof : T (n < length xs)} : A \elim xs, n, proof
   | nil, 0, () -- это вроде как означает, что proof не существует, тело реализовывать не надо
+               -- если точнее, это означает, что нет ни одного подходящего паттерна, поэтому и не нужно реализовывать тело, т.к. нет ни одного подходящего случая.
   | cons a as, 0, _ => a
   | cons a as, suc n, proof => lookup {A} as n {proof}
 
 \func lookupTest : lookup (cons 1 (cons 2 nil)) 1 {()} = 2 => idp
-\func lookupTestFail : lookup (cons 1 (cons 2 nil)) 2 {()} = 2 => idp -- out of bounds
+-- \func lookupTestFail : lookup (cons 1 (cons 2 nil)) 2 {()} = 2 => idp -- out of bounds
 
 -- 2. Реализуйте аналоги функции replicate для vec и Vec (эта функция создает список заданной длины, состоящий из повторений данного элемента).
 \func replicate' {A : \Type} (x : A) (n : Nat) : vec A n \elim n
@@ -79,6 +80,7 @@
 -- 8. Определите тип Tree A n бинарных деревьев высоты не больше n, которые хранят элементы только во внутренних узлах, но не в листьях.
 --    Высота листа равна 0.
 
+-- Получается, что тип Tree A 0 пуст, т.е. нет ни одного дерева высоты 0?
 \data Tree (A : \Type) (n : Nat) \elim n
   | suc n => {| Leaf | Node A (Tree A n) (Tree A n)}
 
@@ -93,7 +95,7 @@
       | false => a
     }
 
-\func treeExample1 => Node {Nat} {2} 1 (Node 2 Leaf (Node 3 Leaf Leaf)) (Leaf) -- specified wrong height
+-- \func treeExample1 => Node {Nat} {2} 1 (Node 2 Leaf (Node 3 Leaf Leaf)) (Leaf) -- specified wrong height
 \func treeExample2 => Node {Nat} {3} 1 (Node 2 Leaf (Node 3 Leaf Leaf)) (Leaf)
 \func treeExample3 => Node {Nat} {9} 1 (Node 2 Leaf (Node 3 Leaf Leaf)) (Leaf) -- overestimated tree height
 
