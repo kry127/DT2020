@@ -82,12 +82,13 @@
 
 -- Получается, что тип Tree A 0 пуст, т.е. нет ни одного дерева высоты 0?
 \data Tree (A : \Type) (n : Nat) \elim n
-  | suc n => {| Leaf | Node A (Tree A n) (Tree A n)}
+  | n => Leaf
+  | suc n => Node A (Tree A n) (Tree A n)
 
 -- определите функцию, возвращающую высоту дерева.
 
 \func height {A : \Type} {n : Nat} (t : Tree A n) : Fin (suc n)
-  | {A}, {suc n}, Leaf => fzero
+  | {A}, {n}, Leaf => fzero
   | {A}, {suc n}, Node a x1 x2 => fsuc (maxFin (height {A} {n} x1) (height {A} {n} x2))
   \where
     \func maxFin {n : Nat} (a : Fin (suc n)) (b : Fin (suc n)) : Fin (suc n) => \case toNat a < toNat b \with {
@@ -95,12 +96,16 @@
       | false => a
     }
 
+\func testLeaf1 : Tree Nat 0 => Leaf
+\func testLeaf2 : Tree Nat 4 => Leaf
 -- \func treeExample1 => Node {Nat} {2} 1 (Node 2 Leaf (Node 3 Leaf Leaf)) (Leaf) -- specified wrong height
 \func treeExample2 => Node {Nat} {3} 1 (Node 2 Leaf (Node 3 Leaf Leaf)) (Leaf)
 \func treeExample3 => Node {Nat} {9} 1 (Node 2 Leaf (Node 3 Leaf Leaf)) (Leaf) -- overestimated tree height
 
-\func treeTest1 : toNat(height treeExample2) = 3 => idp
-\func treeTest2 : toNat(height treeExample3) = 3 => idp
+\func treeTest1 : toNat(height testLeaf1) = 0 => idp
+\func treeTest2 : toNat(height testLeaf2) = 0 => idp
+\func treeTest3 : toNat(height treeExample2) = 3 => idp
+\func treeTest4 : toNat(height treeExample3) = 3 => idp
 
 
 -- 9. Чему равно fileTest (в нормальной форме)? Докажите это.
