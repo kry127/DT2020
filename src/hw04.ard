@@ -1,0 +1,92 @@
+\import Utils
+\open Nat \hiding (<=)
+
+-- Part I: Доказательства при помощи симметричности и транзитивности
+
+-- 1. Докажите, что reverse (reverse xs) = xs, где reverse определен через ++.
+
+\data List (A : \Type) | nil | cons A (List A)
+
+\func \infixl 4 ++ {A : \Type} (xs ys : List A) : List A \elim xs
+  | nil => ys
+  | cons x xs => cons x (xs ++ ys)
+
+\func reverse {A : \Type} (xs : List A) : List A
+  | nil => nil
+  | cons x xs => reverse xs ++ cons x nil
+
+-- Это утверждение будет полезно для доказательства.
+\func reverse++ {A : \Type} (xs ys : List A) : reverse (xs ++ ys) = reverse ys ++ reverse xs => {?}
+
+\func reverse-isInvolutive {A : \Type} (xs : List A) : reverse (reverse xs) = xs => {?}
+
+-- 2. Докажите дистрибутивность умножения над сложением для натуральных чисел (выберите 1 из двух вариантов).
+
+\func rdistr (n m k : Nat) : (m + k) * n = m * n + k * n => {?}
+
+\func ldistr (n m k : Nat) : n * (m + k) = n * m + n * k => {?}
+
+-- Part II: Доказательства при помощи transport и функциональной экстенсиональности
+
+-- 3. Докажите, что (\lam x => not (not x)) = (\lam x => x).
+
+\func not (b : Bool) : Bool
+  | true => false
+  | false => true
+
+\func notNotId : (\lam x => not (not x)) = (\lam x => x) => {?}
+
+-- 4. Докажите, что 0 не равно suc x.
+
+\func zero/=suc (x : Nat) (p : 0 = suc x) : Empty => {?}
+
+-- 5. Докажите, что fac не равен suc.
+
+\open Nat(*)
+
+\func fac (n : Nat) : Nat
+  | 0 => 1
+  | suc n => suc n * fac n
+
+\func fac/=suc (p : fac = suc) : Empty => {?}
+
+-- Part III: Элиминаторы и рекурсоры
+
+-- 6. Определите факториал через Nat-rec.
+
+-- 7. Докажите ассоциативность сложения для натуральных чисел через Nat-elim.
+
+-- 8. Определите рекурсор и элиминатор для D.
+
+\data D
+  | con1 Nat
+  | con2 D D
+  | con3 (Nat -> D)
+
+-- 9. Определите рекурсор и элиминатор для List.
+
+-- Part IV: Интервал
+
+-- 10. Докажите, что left = right, не используя transport, coe и паттерн матчинг с idp.
+
+\func left=right : left = right => {?}
+
+-- 11. Докажите, что если a = a' и b = b', то (a,b) = (a',b'), не используя transport, coe и паттерн матчинг с idp.
+
+\func pairEq {A B : \Type} {a a' : A} {b b' : B} (p : a = a') (q : b = b') : (a,b) = (a',b') => {?}
+
+-- 12. Докажите, что если p = p', то p.1 = p'.1, не используя transport, coe и паттерн матчинг с idp.
+
+\func projEq {A : \Type} (B : A -> \Type) {p p' : \Sigma (x : A) (B x)} (t : p = p') : p.1 = p'.1 => {?}
+
+-- 13. Докажите pmap2, не используя transport, coe и паттерн матчинг с idp.
+
+\func pmap2' {A B C : \Type} (f : A -> B -> C) {a a' : A} (p : a = a') {b b' : B} (q : b = b') : f a b = f a' b' => {?}
+
+-- 14. Мы видели как определить transport через coe. Определите частный случай coe через transport.
+
+\func coe0 (A : I -> \Type) (a : A left) : A right => {?}
+
+-- 15. Определите функцию B right -> B left.
+
+\func Itr' {B : I -> \Type} (b : B right) : B left => {?}
