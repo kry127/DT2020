@@ -68,12 +68,14 @@
    test' = 3 $$ 7
 -}
 
-\func ff (x y : Nat) => x
+\func ff (x y : Nat) => x - y
 \func ff_test => 0 `ff` 1 -- любую функцию можно использовать в инфиксной форму, окружив ее в ` `.
 {- Haskell:
    ff x y = x
    ff_test = 3 `ff` 7
 -}
+\func test_ff : (3 `ff` 7 `ff` 11 = 3) => idp
+\func test_ff2 : ((ff 3 (ff 7 11)) = 3) => idp
 
 \func \fixl 6 ff' (x y : Nat) => x -- аннотации \fix, \fixl, \fixr не делают идентификатор инфиксным, но влияют на его приоритет, когда он используется с ` `.
 \func \fixr 6 ff'' (x y : Nat) => x
@@ -221,7 +223,7 @@
 
 \func \infixl 7 * (x y : Nat) : Nat \elim y
    | 0 => 0
-   | suc y => x * y
+   | suc y => x * y + x
 {- Haskell:
    (*) :: Nat -> Nat -> Nat
    x * Zero = 0

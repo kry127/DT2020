@@ -124,16 +124,56 @@
 --     Функция, преобразующая Vec A n в Fin n -> A, была реализована на лекции.
 --     Реализуйте обратную функцию.
 
-\func coin {A : \Type} {n : Nat} (f : Fin n -> A) : Vec A n => {?}
+-- Вспомогательная функция №1: каст Fin(n) к Fin(n + 1)
+\func succ-cast-fin {A : \Type} {n : Nat} (x : Fin(n)) : Fin(suc n) \elim n, x
+  | suc(n), fzero => fzero {suc n}
+  | suc(n), fsuc (zz) => fsuc(succ-cast-fin {A} zz)
+
+-- Вспомогательная функция №2: население Fin(suc n) максимальным по количеству конструкторов представителем
+-- 0 -> fzero : Fin 1
+-- 1 -> fsuc(fzero) : Fin 2
+-- 2 -> fsuc(fsuc(fzero)) : Fin 3
+-- ...
+\func nat-to-max-fin {A : \Type} (n : Nat) : Fin(suc n) \elim n
+  | 0 => fzero
+  | suc(n) => fsuc(nat-to-max-fin {A} n)
+
+\func coin {A : \Type} {n : Nat} (f : Fin n -> A) : Vec A n \elim n
+  | 0 => vnil -- если n = 0, то мы хотим пустой список
+  -- В противном случае: строим непустой список длины n = suc n' с помощью вспомогательной функции coin-builder:
+  | suc n' => coin-builder {A} {suc n'} {nat-to-max-fin {A} n'} (f)
+  \where {
+    -- эта функция корректна по типам, но в acc мы ожидаем передачу максимального представителя типа Fin,
+    -- поэтому эта функция только для внутреннего использования
+
+    \func coin-builder {A : \Type} {n : Nat} {acc : Fin n} (f : Fin n -> A) : Vec A n \elim n, acc
+      | 1, fzero => vcons (f fzero) vnil
+      | suc(suc (n')), fzero => vcons (f fzero) (coin-builder {A} {suc n'} {fzero {n'}} (domain-diminisher f))
+      | suc (n'), fsuc(finner) => vcons (f (fsuc(finner))) (coin-builder {A} {n'} {finner} (domain-diminisher f))
+
+    -- эта функция могла бы быть публичной: она просто сужает домен стрелки f : Fin n -> A
+
+    \func domain-diminisher {A : \Type} {n : Nat} (f : Fin (suc n) -> A) (x : Fin n) : A => f (succ-cast-fin {A} x)
+  }
 
 -- Optional task
 -- 12. Определите тип матриц и ряд функций над ними.
 
-\func Mat (A : \Type) (n m : Nat) : \Type => {?}
+\func Mat (A : \Type) (n m : Nat) : \Type => Vec (Vec A m) n
 
 -- диагональная матрица с элементами e на диагонали и z на остальных позициях.
 
-\func diag {A : \Type} (z e : A) (n : Nat) : Mat A n n => {?}
+\func diag {A : \Type} (z e : A) (n : Nat) : Mat A n n => diag' {A} z e n n
+  \where {
+    \func diag' {A : \Type} (z e : A) (m n : Nat) : Mat A m n \elim m
+      | 0 => vnil
+      | suc m => vcons (diagAt z e m n) (diag' z e m n)
+
+    \func diagAt {A : \Type} (z e : A)  (m n : Nat) : Vec A n \elim m, n
+      | _, 0 => vnil
+      | 0, suc n => vcons e (replicate {A} z n)
+      | suc m, suc n => vcons z (diagAt {A} z e m n)
+  }
 
 -- транспонирование матриц
 
