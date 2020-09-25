@@ -15,14 +15,57 @@
   | nil => nil
   | cons x xs => reverse xs ++ cons x nil
 
--- Это утверждение будет полезно для доказательства.
-\func reverse++ {A : \Type} (xs ys : List A) : reverse (xs ++ ys) = reverse ys ++ reverse xs => {?}
+\func assoc-++ {A : \Type} (xs ys zs : List A) : xs ++ ys ++ zs = xs ++ (ys ++ zs) \elim xs
+  | nil => idp
+  | cons a xs => pmap (\lam l => cons a l) (assoc-++ xs ys zs)
 
-\func reverse-isInvolutive {A : \Type} (xs : List A) : reverse (reverse xs) = xs => {?}
+
+-- Это утверждение будет полезно для доказательства.
+\func reverse++ {A : \Type} (xs ys : List A) : reverse (xs ++ ys) = reverse ys ++ reverse xs \elim xs, ys
+  | nil, nil => idp
+  | nil, cons y ys => \case (assoc-++ (reverse ys) (cons y nil) (nil)) \with {
+    | p => sym p -- применяем свойство симметричности
+  }
+  | cons a xs, ys => \case pmap (\lam l => l ++ cons a nil) (reverse++ xs ys) \with {
+    -- здесь необойтись без транзитивности: *>
+    | p => p *> (assoc-++ (reverse ys) (reverse xs) (cons a nil))
+  }
+
+-- Это жутко читать, попробуем синтаксический сахар:
+--       [утверждение A]  ==<  [доказательство A = B] >==
+--       [утверждение B]  ==<  [доказательство B = C] >==
+--                        ...
+--       [утверждение Z] `qed
+\func reverse-isInvolutive {A : \Type} (xs : List A) : reverse (reverse xs) = xs
+  | nil => idp
+  | cons a xs =>
+    reverse (reverse xs ++ cons a nil) ==< reverse++ (reverse xs) (cons a nil)                 >==
+    cons a (reverse (reverse xs))      ==< pmap (\lam l => cons a l) (reverse-isInvolutive xs) >==
+    cons a xs `qed
+
+-- вкусный синтаксический сахар
 
 -- 2. Докажите дистрибутивность умножения над сложением для натуральных чисел (выберите 1 из двух вариантов).
 
-\func rdistr (n m k : Nat) : (m + k) * n = m * n + k * n => {?}
+\import lect04 (+-assoc, +-comm)
+\func rdistr (n m k : Nat) : (m + k) * n = m * n + k * n \elim n
+  | 0 => idp
+  | suc n =>  \case pmap (\lam t => t + (m + k)) (rdistr n m k) \with {
+    -- теперь нам известно, что
+    --    (m + k) * n + (m + k ) = m * n + k * n + (m + k)
+    -- осталось немножко "повращать" синтаксическое дерево суммирования с помощью ассоциативности и дистрибутивности
+    p => p *>
+    (
+      -- Хотим доказать:
+      -- m * n + k * n + (m + k) -> m * n + m + (k * n + k)
+      m * n + k * n + (m + k) ==< +-assoc (m * n) (k * n) (m + k) >==
+      m * n + (k * n + (m + k)) ==< pmap (\lam t => m * n + t) (sym (+-assoc (k * n) m k)) >==
+      m * n + (k * n + m + k) ==< pmap (\lam t => m * n + (t + k)) (+-comm (k * n) m) >==
+      m * n + (m + k * n + k) ==< pmap (\lam t => m * n + t) (+-assoc m (k * n) k) >==
+      m * n + (m + (k * n + k))  ==< sym (+-assoc (m * n) m (k * n + k)) >==
+      m * n + m + (k * n + k) `qed
+    )
+  }
 
 \func ldistr (n m k : Nat) : n * (m + k) = n * m + n * k => {?}
 
@@ -35,11 +78,36 @@
   | false => true
 
 \import lect02 (not-isInvolution)
-\func notNotId : (\lam x => not (not x)) = (\lam x => x) => {?}
+\func notNotId : (\lam x => not (not x)) = (\lam x => x) =>
+  -- мы хотим доказать равенство двух функций -- воспользуемся интервалами
+  -- и конструктивно построим функции в обеих частях равенства
+  -- для этого нам необходимо сделать \lam i => lam x => {???}
+  -- то есть 'i' выступает селектором нужной нам функции, а по 'x' мы абстрагируемся, чтобы в дальнейшем использовать его.
+  -- Понятно, что если бы мы доказали утверждение
+  --    proof-of-inv : \Pi (x : Bool) -> not(not x) = x
+  -- то его можно было бы использовать: сначала подставляем инстанс 'x', затем селектором выбираем нужное нам тело лямбда-выражения
+  path (\lam i x => proof-of-inv x @ i)
+  \where {
+    -- Так давайте докажем это простое утверждение: для любого x : Bool выполняется закон инволютивности -- not (not x) = x
+    --    proof-of-inv : \Pi (x : Bool) -> not(not x) = x
+    -- Доказывается оно не тяжело: разбор случаев по каждому конструктору
+    \func proof-of-inv (x : Bool) : not(not x) = x \elim x
+      | true => idp
+      | false => idp
+  }
 
 -- 4. Докажите, что 0 не равно suc x.
 
-\func zero/=suc (x : Nat) (p : 0 = suc x) : Empty => {?}
+\func zero/=suc (x : Nat) (p : 0 = suc x) : Empty =>
+  -- пользуемся лайфхаком с интервалом, рассказанным на лекции: необходимо воспользоваться
+  -- тем фактом, что из "p" мы можем извлечь конструкторы 0 и suc.
+  -- Тогда воспользуемся coe, который для 0 будет возвращать населённый одноэлементный тип \Sigma, населён unit = ()
+  -- И потребуем у него в качестве результата тип A right = Empty в качестве результата, тем
+  -- самым докажем наше утверждение
+  coe (\lam i => \case p @ i \with {
+    | 0 => \Sigma
+    | suc n => Empty
+  }) () right
 
 -- 5. Докажите, что fac не равен suc.
 
@@ -49,16 +117,57 @@
   | 0 => 1
   | suc n => suc n * fac n
 
-\func fac/=suc (p : fac = suc) : Empty => {?}
+\func fac/=suc (p : fac = suc) : Empty =>
+  -- чем-то похоже на предыдущее -- пользуемся тем, что fac 2 = 2, но suc 2 = 3
+  -- Так сказать, difference that makes the difference
+  -- используя противоречие доказываем желаемое -- населяем ненаселяемое при ложной посылке
+  coe (\lam i => \case (p @ i) 2 \with {
+    | 2 => \Sigma
+    | _ => Empty
+  }) () right
 
 -- Part III: Элиминаторы и рекурсоры
 
 -- 6. Определите факториал через Nat-rec.
-\import lect04 (Nat-rec)
+\import lect04 (Nat-elim, Nat-rec)
 \func myfac (n : Nat) : Nat =>
-  Nat-rec Nat 0 (Nat.+) n
+  Nat-rec Nat 1 (\lam x y => suc(x) * y) n
+
+\func myfac-test0 : myfac 0 = 1 => idp
+\func myfac-test1 : myfac 1 = 1 => idp
+\func myfac-test2 : myfac 2 = 2 => idp
+\func myfac-test3 : myfac 3 = 6 => idp
+\func myfac-test4 : myfac 4 = 24 => idp
+\func myfac-test5 : myfac 5 = 120 => idp
+\func myfac-test6 : myfac 6 = 720 => idp
+\func myfac-test7 : myfac 7 = 5040 => idp
+
+-- TODO
+-- кстати, как мне показалось, рекурсор -- это частный случай элиминатора, их не надо определять дважды
+\func Nat-rec' (T : \Type) => Nat-elim (\lam _ => T)
+\func myfac' (n : Nat) : Nat =>
+  Nat-rec' Nat 1 (\lam x y => suc(x) * y) n
+
+\func myfac-test0' : myfac' 0 = 1 => idp
+\func myfac-test1' : myfac' 1 = 1 => idp
+\func myfac-test2' : myfac' 2 = 2 => idp
+\func myfac-test3' : myfac' 3 = 6 => idp
+\func myfac-test4' : myfac' 4 = 24 => idp
+\func myfac-test5' : myfac' 5 = 120 => idp
+\func myfac-test6' : myfac' 6 = 720 => idp
+\func myfac-test7' : myfac' 7 = 5040 => idp
 
 -- 7. Докажите ассоциативность сложения для натуральных чисел через Nat-elim.
+\func assoc-add {x y z : Nat} : ((x + y) + z) = (x + (y + z))
+  => Nat-elim
+      (\lam n => (x + y) + n = x + (y + n)) -- мы будем доказывать это утверждение индукцией по n
+      idp -- очевидно, при n = 0 утверждение истино
+      -- доказываем индукционный переход -- если на шаге n нам дано утверждение
+      -- p : ((x + y) + n) = (x + (y + n)), то с помощью pmap мы получаем, что и
+      -- suc ((x + y) + n) = suc (x + (y + n)) <- ((x + y) + suc n) = (x + suc (y + n)) <- ((x + y) + suc n) = (x + (y + suc n))
+      (\lam n (p : ((x + y) + n) = (x + (y + n))) => pmap suc p)
+      -- что и требовалось доказать
+      z -- доказываем утверждение, в частности, для n = z, получая желаемое утверждение
 
 -- 8. Определите рекурсор и элиминатор для D.
 
@@ -67,7 +176,28 @@
   | con2 D D
   | con3 (Nat -> D)
 
+\func D-eliminator (P : D -> \Type)
+                 (con1-rec : \Pi (n : Nat) -> P (con1 n))
+                 (con2-rec : \Pi (d1 d2 : D) -> P d1 -> P d2 -> P (con2 d1 d2))
+                 (con3-rec : \Pi (f : Nat -> D) -> P (con3 f))
+                 (d : D) : P d \elim d
+  | con1 n => con1-rec n
+  | con2 d1 d2 => con2-rec d1 d2 (D-eliminator P con1-rec con2-rec con3-rec d1) (D-eliminator P con1-rec con2-rec con3-rec d2)
+  | con3 _x => con3-rec _x
+
+-- рекурсор -- частный случай элиминатора
+\func D-recursor (T : \Type) => D-eliminator (\lam _ => T)
+
 -- 9. Определите рекурсор и элиминатор для List.
+\func List-eliminator {A : \Type}
+                      (P : List A -> \Type)
+                      (nil-case : P (nil))
+                      (cons-case : \Pi (a : A) (l : List A) -> P l -> P (cons a l))
+                      (l : List A) : P l \elim l
+  | nil => nil-case
+  | cons a l => cons-case a l (List-eliminator P nil-case cons-case l)
+
+\func List-recursor {A : \Type} (T : \Type) => List-eliminator {A : \Type} (\lam _ => T)
 
 -- Part IV: Интервал
 
