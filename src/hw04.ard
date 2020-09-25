@@ -34,6 +34,7 @@
   | true => false
   | false => true
 
+\import lect02 (not-isInvolution)
 \func notNotId : (\lam x => not (not x)) = (\lam x => x) => {?}
 
 -- 4. Докажите, что 0 не равно suc x.
@@ -53,6 +54,9 @@
 -- Part III: Элиминаторы и рекурсоры
 
 -- 6. Определите факториал через Nat-rec.
+\import lect04 (Nat-rec)
+\func myfac (n : Nat) : Nat =>
+  Nat-rec Nat 0 (Nat.+) n
 
 -- 7. Докажите ассоциативность сложения для натуральных чисел через Nat-elim.
 
@@ -69,24 +73,35 @@
 
 -- 10. Докажите, что left = right, не используя transport, coe и паттерн матчинг с idp.
 
-\func left=right : left = right => {?}
+\func left=right : left = right => path (\lam i => i)
 
 -- 11. Докажите, что если a = a' и b = b', то (a,b) = (a',b'), не используя transport, coe и паттерн матчинг с idp.
 
-\func pairEq {A B : \Type} {a a' : A} {b b' : B} (p : a = a') (q : b = b') : (a,b) = (a',b') => {?}
+\func pairEq {A B : \Type} {a a' : A} {b b' : B} (p : a = a') (q : b = b') : (a,b) = (a',b') =>
+  path (\lam i => (p @ i, q @ i))
 
 -- 12. Докажите, что если p = p', то p.1 = p'.1, не используя transport, coe и паттерн матчинг с idp.
 
-\func projEq {A : \Type} (B : A -> \Type) {p p' : \Sigma (x : A) (B x)} (t : p = p') : p.1 = p'.1 => {?}
+\func projEq {A : \Type} (B : A -> \Type) {p p' : \Sigma (x : A) (B x)} (t : p = p') : p.1 = p'.1 =>
+  path (\lam i => (t @ i).1)
 
 -- 13. Докажите pmap2, не используя transport, coe и паттерн матчинг с idp.
 
-\func pmap2' {A B C : \Type} (f : A -> B -> C) {a a' : A} (p : a = a') {b b' : B} (q : b = b') : f a b = f a' b' => {?}
+\func pmap2' {A B C : \Type} (f : A -> B -> C) {a a' : A} (p : a = a') {b b' : B} (q : b = b') : f a b = f a' b' =>
+  path (\lam i => f (p @ i) (q @ i))
 
 -- 14. Мы видели как определить transport через coe. Определите частный случай coe через transport.
 
-\func coe0 (A : I -> \Type) (a : A left) : A right => {?}
+\func coe0 (A : I -> \Type) (a : A left) : A right => \case coe (left =) idp right \with {
+  -- сначала мы доказали с помощью coe, что left=right (но можно было использовать 10)
+  -- теперь с помощью transport мы можем утверждать, что если у нас есть (a : A left) мы получаем обитателя A right
+  left-eq-right => transport A left-eq-right a
+}
 
 -- 15. Определите функцию B right -> B left.
 
-\func Itr' {B : I -> \Type} (b : B right) : B left => {?}
+\func Itr' {B : I -> \Type} (b : B right) : B left => \case coe (`= left) idp right \with {
+  -- сначала мы доказали с помощью coe, что right=left
+  -- теперь мы можем использовать это в transport
+ right-eq-left => transport B right-eq-left b
+}
