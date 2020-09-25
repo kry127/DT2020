@@ -30,13 +30,9 @@
 
 -- 3. Докажите, что (\lam x => not (not x)) = (\lam x => x).
 
-\func not (b : Bool) : Bool
-  | true => false
-  | false => true
-
 \func notNotId : (\lam x => not (not x)) = (\lam x => x) => {?}
 
--- 4. Докажите, что 0 не равно suc x.
+-- 4. Докажите, что 0 не равно suc x, не используя паттерн матчинг на равенстве.
 
 \func zero/=suc (x : Nat) (p : 0 = suc x) : Empty => {?}
 
