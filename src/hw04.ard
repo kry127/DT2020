@@ -179,11 +179,11 @@
 \func D-eliminator (P : D -> \Type)
                  (con1-rec : \Pi (n : Nat) -> P (con1 n))
                  (con2-rec : \Pi (d1 d2 : D) -> P d1 -> P d2 -> P (con2 d1 d2))
-                 (con3-rec : \Pi (f : Nat -> D) -> P (con3 f))
+                 (con3-rec : \Pi (f : Nat -> D) (g : (\Pi (n : Nat) -> P (f n)))  -> P (con3 f))
                  (d : D) : P d \elim d
   | con1 n => con1-rec n
   | con2 d1 d2 => con2-rec d1 d2 (D-eliminator P con1-rec con2-rec con3-rec d1) (D-eliminator P con1-rec con2-rec con3-rec d2)
-  | con3 _x => con3-rec _x
+  | con3 _x => con3-rec _x (\lam n => D-eliminator P con1-rec con2-rec con3-rec (_x n))
 
 -- рекурсор -- частный случай элиминатора
 \func D-recursor (T : \Type) => D-eliminator (\lam _ => T)
