@@ -64,6 +64,10 @@
   | true => \Sigma
   | false => Empty
 
+\func if {A : \Type} (b : Bool) (t e : A) : A \elim b
+  | true => t
+  | false => e
+
 -- List
 
 \data List (A : \Type) | nil | cons A (List A)
