@@ -288,3 +288,7 @@ n <= suc m
     | false, false, p, true => {?}
     | false, false, p, false => {?}
   }
+
+-- можно не указывать тип в \return:
+-- 2. \case \elim x, f true \as ft, idp : f true = ft, f false \return f (f (f x)) = f x \with
+-- 3. \case \elim x, f true \as ft, idp : f true = ft, f false \with {
