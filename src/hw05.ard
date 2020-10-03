@@ -82,21 +82,21 @@
 \data ReflTransClosure {A : \Type} (R : A -> A -> \Type) (x y : A) \elim x, y
   | a, b => closure-refl (a = b) -- рефлексивность
                           -- здесь можно \Sigma не писать
-  | a, b => closure-trans (\Sigma (c : A) (ReflTransClosure R a c) (R c b) ) -- транзитивное замыкание
+  | a, b => closure-trans (c : A) (ReflTransClosure R a c) (R c b) -- транзитивное замыкание
 
 -- 7. Докажите, что если R уже рекфлексивно и транзитивно, то ReflTransClosure R эквивалентно R.
 
 \func ReflTransClosure-lem {A : \Type} (R : A -> A -> \Type) (refl : \Pi (x : A) -> R x x) (trans : \Pi (x y z : A) -> R x y -> R y z -> R x z)
   : \Pi (x y : A) -> R x y <-> ReflTransClosure R x y
   => \lam (x y : A) => ((ReflTransClosure-lem-> R refl trans x y), (ReflTransClosure-lem<- R refl trans x y))
-\where
+\where {
   -- докажем необходимость
   \func ReflTransClosure-lem-> {A : \Type}
                                (R : A -> A -> \Type)
                                (refl : \Pi (x : A) -> R x x)
                                (trans : \Pi (x y z : A) -> R x y -> R y z -> R x z)
                                (x y : A) (p : R x y) : ReflTransClosure R x y
-  => closure-trans (x, closure-refl idp, p) -- долго думал, а вышло вот это малюсенькое выражение -_-
+  => closure-trans x (closure-refl idp) p -- долго думал, а вышло вот это малюсенькое выражение -_-
   -- затем докажем достаточность
   \func ReflTransClosure-lem<- {A : \Type}
                                (R : A -> A -> \Type)
@@ -105,8 +105,9 @@
                                (x y : A) (reflTrans : ReflTransClosure R x y) :  R x y
     \elim reflTrans {
       | closure-refl p => transport (\lam t => R x t) p (refl x)
-      | closure-trans triple => trans x triple.1 y (ReflTransClosure-lem<- R refl trans x triple.1 triple.2) triple.3
+      | closure-trans elem rpath rstep => trans x elem y (ReflTransClosure-lem<- R refl trans x elem rpath) rstep
     }
+}
 
 
 -- 8. Определите предикат Sublist xs ys на списках, означающий "список xs является подсписком ys".
@@ -159,13 +160,16 @@
     | true, true, _, p, _ => pmap (\lam x => f (f x)) p *> pmap f p
     | true, false, true, p, q => pmap (\lam x => f (f x)) p *> pmap f q
                                   -- зачем ты делаешь \case, если всё равно не матчишься ни на чем? Можно \let использовать в этом случае.
-    | true, false, false, p, q => \case (p *> (sym q)), pmap (\lam x => f (f x)) p *> pmap f q \with {
-      -- мы сначала доказали, что sexpr: f true = f false, затем что texpr: f(f(f(true))) = f(false)
-      sexpr, texpr => texpr *> (sym sexpr) -- дальнейшее доказательство очевидно
-    }
-    | false, true, true, p, q => \case (q *> (sym p)), pmap (\lam x => f (f x)) q *> pmap f p \with {
-      sexpr, texpr => texpr *> (sym sexpr)
-    }
+                                  -- да я уже давно хотел ею воспользоваться, да как-то не знал как, в документации глянул
+    | true, false, false, p, q => \let
+          | sexpr => (p *> (sym q)) -- мы сначала доказали, что sexpr: f true = f false
+          | texpr => pmap (\lam x => f (f x)) p *> pmap f q -- затем что texpr: f(f(f(true))) = f(false)
+        \in texpr *> (sym sexpr) -- дальнейшее доказательство очевидно
+
+    | false, true, true, p, q => \let
+          | sexpr => (q *> (sym p))
+          | texpr => pmap (\lam x => f (f x)) q *> pmap f p
+        \in texpr *> (sym sexpr)
     | false, _, false, _, q => pmap (\lam x => f (f x)) q *> pmap f q
     | false, false, true, p, q => pmap (\lam x => f (f x)) q *> pmap f p
   }
