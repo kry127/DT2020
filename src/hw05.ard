@@ -29,8 +29,12 @@
 -- проблема в том, что я пока что не понимаю, как мне сгенерировать функцию,
 -- которая по произвольному элементу (a : A) может генерировать B a a idp.
 -- У меня есть только (b : B a) -- такой инстанс B, других нет...
-\func transport'' {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a'
-  => Jalt (\lam (x y : A) (p : x = y) => B a') (\lam (ta : A) => b) p
+
+-- Предлогаю попробовать определить transport в таком виде:
+\func transport'' {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') : B a -> B a'
+  => {?}
+-- \func transport'' {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a'
+--   => Jalt (\lam (x y : A) (p : x = y) => B a') (\lam (ta : A) => b) p
   -- \elim p | idp => b  -- second variant
 
 \func sigma-contr {A : \Type} {a : A} (p : \Sigma (x : A) (a = x)) : (a,idp) = {\Sigma (x : A) (a = x)} p => {?}
@@ -77,6 +81,7 @@
 
 \data ReflTransClosure {A : \Type} (R : A -> A -> \Type) (x y : A) \elim x, y
   | a, b => closure-refl (a = b) -- рефлексивность
+                          -- здесь можно \Sigma не писать
   | a, b => closure-trans (\Sigma (c : A) (ReflTransClosure R a c) (R c b) ) -- транзитивное замыкание
 
 -- 7. Докажите, что если R уже рекфлексивно и транзитивно, то ReflTransClosure R эквивалентно R.
@@ -153,6 +158,7 @@
   \return f (f (f x')) = f x' \with {
     | true, true, _, p, _ => pmap (\lam x => f (f x)) p *> pmap f p
     | true, false, true, p, q => pmap (\lam x => f (f x)) p *> pmap f q
+                                  -- зачем ты делаешь \case, если всё равно не матчишься ни на чем? Можно \let использовать в этом случае.
     | true, false, false, p, q => \case (p *> (sym q)), pmap (\lam x => f (f x)) p *> pmap f q \with {
       -- мы сначала доказали, что sexpr: f true = f false, затем что texpr: f(f(f(true))) = f(false)
       sexpr, texpr => texpr *> (sym sexpr) -- дальнейшее доказательство очевидно
