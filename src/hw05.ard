@@ -1,4 +1,5 @@
 \import Utils \hiding (<=-refl, J)
+\import lect02 (id)
 \import lect04 (+-comm)
 \import lect05
 \open Nat(+,*)
@@ -32,16 +33,19 @@
 
 -- Предлогаю попробовать определить transport в таком виде:
 \func transport'' {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') : B a -> B a'
-  => {?}
--- \func transport'' {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a'
---   => Jalt (\lam (x y : A) (p : x = y) => B a') (\lam (ta : A) => b) p
+  => Jalt (\lam (x y : A) (pp : x = y) => B x -> B y) (\lam x => id (B x)) p
   -- \elim p | idp => b  -- second variant
 
-\func sigma-contr {A : \Type} {a : A} (p : \Sigma (x : A) (a = x)) : (a,idp) = {\Sigma (x : A) (a = x)} p => {?}
+\func sigma-contr {A : \Type} {a : A} (p : \Sigma (x : A) (a = x)) : (a,idp) = {\Sigma (x : A) (a = x)} p =>
+  -- идея в том, что мы хотим превратить инстанс idp (f (a a) = f (a a)) в инстанс (f (a a) = f (a x)), где нам дано p.2 :: a = x
+  -- Очевидно, делается с помощью Jalt, но я еле догадался, что надо написать (еле сошлось по типам):
+  Jalt (\lam (x y : A) (pp : x = y) => (x, idp) = {\Sigma (t : A) (x = t)} (y, pp)) (\lam _ => idp) p.2
+  -- т.е. поэксплуатировали Jalt, чтобы он подставил нам f (a b), а f (a a) у нас очевидно есть -- это idp
 
 \func J' {A : \Type} {a : A} (B : \Pi (a' : A) -> a = a' -> \Type)
          (b : B a idp)
-         {a' : A} (p : a = a') : B a' p => {?}
+         {a' : A} (p : a = a') : B a' p
+  => transport'' (\lam x => B x.1 x.2) (sigma-contr (a', p)) b
 
 -- 3. Докажите, что vnil является нейтральным элементом для v++.
 
