@@ -1,40 +1,99 @@
 \import Utils
+\import hw01 (gcd)
 \import lect06
 \open Nat(+)
 
 -- 1. Определите функцию swap несколькими способами.
 
 -- При помощи \cowith и доступа к полям.
-\func swap {A B : \Type} (p : Pair A B) : Pair B A => {?}
+\func swap {A B : \Type} (p : Pair A B) : Pair B A \cowith
+  | fst_ => snd_ {p}
+  | snd_ => fst_ {p}
 
 -- При помощи \new и паттерн матчинга.
-\func swap' {A B : \Type} (p : Pair A B) : Pair B A => {?}
+\func swap' {A B : \Type} (p : Pair A B) : Pair B A
+  | (a, b) => \new Pair {| fst_ => b | snd_ => a}
 
 -- При помощи \new и доступа к полям.
-\func swap'' {A B : \Type} (p : Pair A B) : Pair B A => {?}
+\func swap'' {A B : \Type} (p : Pair A B) : Pair B A => \new Pair {
+  | fst_ => p.snd_
+  | snd_ => p.fst_
+}
 
 -- 2. Докажите, что swap (swap p) = p.
 
-\func swap-involutive {A B : \Type} (p : Pair A B) : swap (swap p) = p => {?}
+\func swap-involutive {A B : \Type} (p : Pair A B) : swap (swap p) = p => idp
 
 -- 3. Докажите, что тип PosNat 0 пустой, а тип PosNat 1 нет.
 
-\func zero-isNotPos (p : PosNat 0) : Empty => {?}
+\func zero-isNotPos (p : PosNat 0) : Empty => p.p
 
-\func one-isPos : PosNat 1 => {?}
+\func one-isPos : PosNat 1 => \new PosNat 1 ()
 
 -- 4. Определите \record, состоящий из пар взаимно простых натуральных чисел.
 --    Определите тип, состоящий из натуральных чисел, взаимно простых с 60.
+\record MutuallyPrimar (m n : Nat) (p : gcd m n = 1)
+
+\func MutuallyPrimarWith60 => MutuallyPrimar {| n => 60}
+
+\func mpTest1 => MutuallyPrimar 2 5 idp
+\func mpTest2 (x : MutuallyPrimar 2 2) : Empty => \case x.p \with {
+
+}
+
+\func mpTestW60-1 : MutuallyPrimarWith60 => \new MutuallyPrimar {| m => 7 | p => idp}
 
 -- 5. Закончите определение класса монад. Этот класс должен содержать все монадные законы и реализовывать все поля из класса функторов.
 
 \class Monad \extends Functor
   | return {A : \Type} : A -> F A
   | \infixl 1 >>= {A B : \Type} : F A -> (A -> F B) -> F B
+  -- three laws of monads:
+  | >>=-id-left {A B : \Type}:  \Pi (a : A) (afb : A -> F B) -> ((return a) >>= afb) = (afb a)
+  | >>=-id-right {A : \Type}:  \Pi (fa : F A) -> fa = (fa >>= return)
+  | >>=-assoc {A B C : \Type}: \Pi (fa : F A) (afb : A -> F B) (bfc : B -> F C)
+                                  -> ((fa >>= afb) >>= bfc) = (fa >>= (\lam (a : A) => afb a >>= bfc))
+  -- some Functor laws are expressed
+  | fmap => \lam k fa => fa >>= (\lam x => return (k x))
+  | fmap-id {A : \Type} (y : F A)=> sym (>>=-id-right y)
+  | fmap-comp {A B C : \Type} (f : A -> B) (g : B -> C) (a : F A) => \let
+    -- План доказательства. Хотим:
+    --   (a >>= (\lam x => return (g (f x)))) = (a >>= (\lam x => return (f x)) >>= (\lam x => return (g x)))
+    --
+    --   1. (a >>= (\lam x => return (f x)) >>= (\lam x => return (g x)))
+    --   >>=-assoc
+    --   2. a >>= (\lam (a : A) => ((\lam x => return (f x)) a) >>= (\lam x => return (g x)))
+    --   2. a >>= (\lam (a : A) => (return (f a)) >>= (\lam x => return (g x)))
+    --   >>=-id-left
+    --   3. a >>= (\lam (a : A) => ((\lam x => return (g x))) (f a))
+    --   3. a >>= (\lam (a : A) => return (g (f a)))
+    | trivial : (a >>= (\lam x => return (f x)) >>= (\lam x => return (g x))) = (a >>= (\lam x => return (f x)) >>= (\lam x => return (g x))) => idp
+    | step1 => >>=-assoc a (\lam x => return (f x)) (\lam x => return (g x))
+    | step2-internal (a : A)  => >>=-id-left (f a) (\lam x => return (g x))
+    | step2-internal'  => path (\lam i => \lam a => step2-internal a @ i)
+    | step2 => pmap (\lam ttt => a >>= ttt) step2-internal'
+    -- после доказанных утверждений доказательство основного очевидно (можно уничтожить trivial и удалить промежуточные шаги)
+  \in sym (idp *> step1 *> step2)
 
 -- 6. Определите \instance Monad для Maybe.
 
-\instance MaybeMonad : Monad Maybe => {?}
+\instance MaybeMonad : Monad Maybe
+  | return {A : \Type} (a : A) => just a
+  | >>= {A B : \Type} (a : Maybe A) (afb : A -> Maybe B) : Maybe B \elim a {
+    | nothing => nothing
+    | just a => afb a
+  }
+  | >>=-id-left {A B : \Type} (a : A) (afb : A -> Maybe B) => idp
+  | >>=-id-right {A : \Type} (fa : Maybe A) : fa = >>= fa just \elim fa {
+    | nothing => idp
+    | just a => idp
+  }
+  | >>=-assoc {A B C : \Type} (fa : Maybe A) (afb : A -> Maybe B) (bfc : B -> Maybe C)
+    : >>= (>>= fa afb) bfc = >>= fa (\lam a => >>= (afb a) bfc) -- я не понимаю, почему он выводит тип в такой страшной нотации...
+  \elim fa {
+    | nothing => idp
+    | just a => idp
+  }
 
 -- 7. Определите \instance Monad для State и State'.
 
@@ -43,3 +102,21 @@
 
 \data State' (S A : \Type)
   | state' (S -> \Sigma S A)
+
+-- helper function which wraps 'f' arrow into 'State' context
+\func mkState {S A : \Type} (f : S -> \Sigma S A) : State S A => \new State { | state => f}
+
+\instance StateMonad {S : \Type} : Monad (\lam (A : \Type) => State S A)
+  | return {A : \Type} (a : A) => mkState (\lam s => (s, a))
+  | >>=  {A B : \Type} (sta : State S A) (f : A -> State S B)
+  =>
+    mkState (
+      \lam s => \case sta.state s \with {
+        | (s', a) => state {f a} s'
+      }
+    )
+  | >>=-id-left {A B : \Type} (a : A) (afb : A -> State S B) => idp
+  | >>=-id-right {A : \Type} (fa : State S A) => \case fa.state \with {
+    | (farr) => pmap mkState idp
+  }
+  | >>=-assoc {A B C : \Type} (fa : State S A) (afb : A -> State S B) (bfc : B -> State S C) => idp
