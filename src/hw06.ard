@@ -104,7 +104,9 @@
   | state' (S -> \Sigma S A)
 
 -- helper function which wraps 'f' arrow into 'State' context
-\func mkState {S A : \Type} (f : S -> \Sigma S A) : State S A => \new State { | state => f}
+\func mkState  {S A : \Type} (f : S -> \Sigma S A) : State  S A => \new State  { | state => f}
+\func runState' {S A : \Type} (fm : State' S A) (s : S) : \Sigma S A \elim fm
+  | state' f => f s
 
 \instance StateMonad {S : \Type} : Monad (\lam (A : \Type) => State S A)
   | return {A : \Type} (a : A) => mkState (\lam s => (s, a))
@@ -116,7 +118,40 @@
       }
     )
   | >>=-id-left {A B : \Type} (a : A) (afb : A -> State S B) => idp
-  | >>=-id-right {A : \Type} (fa : State S A) => \case fa.state \with {
-    | (farr) => pmap mkState idp
-  }
+  | >>=-id-right {A : \Type} (fa : State S A) => idp
   | >>=-assoc {A B C : \Type} (fa : State S A) (afb : A -> State S B) (bfc : B -> State S C) => idp
+
+-- equivalent conversions (isomorphism)
+\func state->state' {S A : \Type} (st : State S A) : State' S A => state' (st.state)
+\func state'->state {S A : \Type} (st' : State' S A) : State S A \elim st'
+  | state' _x => \new State { | state => _x }
+
+
+\instance State'Monad {S : \Type} : Monad (\lam (A : \Type) => State' S A)
+  | return {A : \Type} (a : A) => state->state' (return a)
+  | >>=  {A B : \Type} (sta : State' S A) (f : A -> State' S B) =>
+    state->state' (state'->state sta >>= (\lam a => state'->state (f a)))
+  | >>=-id-left {A B : \Type} (a : A) (afb : A -> State' S B) =>
+    transport (\lam tt => state->state' {S} {B} (mkState {S} {B} tt) = afb a) (lemma-aux7 (afb a)) (
+      lemma-aux8 (afb a)
+    )
+  | >>=-id-right {A : \Type} (fa : State' S A) => transport (\lam tt => fa = state' {S} {A} (\lam (s : S) => ((tt s).1, (tt s).2))) (lemma-aux7 fa) (lemma-aux6 fa)
+  | >>=-assoc {A B C : \Type} (fa : State' S A) (afb : A -> State' S B) (bfc : B -> State' S C) => idp
+  \where {
+    -- we can prove different lemmas, their proof is eazy (elimination on argument doesn't work in \instance section)
+    \func lemma-aux0 {S A : \Type} (f : S -> \Sigma S A) : state' f = state->state' (mkState f) => idp
+    \func lemma-aux1 {S A : \Type} (f : S -> \Sigma S A) : f = runState' (state' f) => idp
+    \func lemma-aux2 {S A : \Type} (fm : State' S A) : fm = (state' (\lam s => runState' fm s)) \elim fm
+      | state' _x => idp -- unused lemma
+    \func lemma-aux3 {S A : \Type} (fm : State' S A) : state'->state fm = (mkState (\lam s => runState' fm s)) \elim fm
+      | state' _x => idp -- unused lemma
+    \func lemma-aux4 {S A : \Type} (fm : State' S A) : fm = state->state' (mkState (\lam s => runState' fm s)) \elim fm
+      | state' _x => idp -- unused lemma
+    \func lemma-aux5 {S A : \Type} (f : S -> \Sigma S A) : f = (\lam s => ((f s).1,(f s).2)) => idp
+    \func lemma-aux6 {S A : \Type} (fm : State' S A) : fm = state' (\lam s => ((runState' fm s).1,(runState' fm s).2)) \elim fm
+      | state' _x => pmap state' (lemma-aux5 _x)
+    \func lemma-aux7 {S A : \Type} (fm : State' S A) : runState' fm = state {state'->state fm} \elim fm
+      | state' _x => idp
+    \func lemma-aux8 {S A : \Type} (fm : State' S A) : state->state' (mkState (runState' fm)) = fm \elim fm
+      | state' _x => sym (lemma-aux0 _x)
+  }
