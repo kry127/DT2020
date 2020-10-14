@@ -1,10 +1,78 @@
+\import Meta
+\import Paths.Meta
 \import Utils
+\import lect07
+\open sort
 
 -- 1. Реализуйте функцию filter и докажите ее корректность, то есть, что выполнены следующие условия:
 --    * filter p xs является подсписком xs
 --    * Все элементы filter p xs удовлетворяют предикату p
 --    * Любой подсписок xs с тем же свойством является подсписком filter p xs
 
+\import hw05 (Sublist)
+\import hw05 (Sublist-filtered) -- это, собственно, первое доказательство
+\import lect05 (filter)
+
+\data ListSatisfiesPredicate {A : \Type} (xs : List A) (p : A -> Bool) \elim xs
+  | nil => nil-satisfies-any-predicate
+  | cons a as => cons-satisfies-predicate (p a = true) (ListSatisfiesPredicate as p)
+
+
+\func Filtered-by-p-satisfy-p {A : \Type} (xs : List A) (p : A -> Bool) : (ListSatisfiesPredicate (filter p xs) p)
+  \elim xs
+    | nil => nil-satisfies-any-predicate
+    | cons a as => \case p a \as pa, idp : p a = pa
+    \return
+              ListSatisfiesPredicate {A} (\case pa \with {
+                | true => cons {A} a (filter {A} p as)
+                | false => filter {A} p as
+              }) p
+    \with {
+      | true, x => cons-satisfies-predicate x (Filtered-by-p-satisfy-p as p)
+      | false, _ => Filtered-by-p-satisfy-p as p
+    }
+
+-- not completed proof yet.
+-- Achievement: try to proof it without lemma
+\func  Sublist-that-satisfies-p-is-also-sublist-of-filtered
+  {A : \Type} (xs ys : List A) (p : A -> Bool) (ys-sublist-xs : Sublist ys xs) (ys-satisfies-p : ListSatisfiesPredicate ys p) : Sublist ys (filter p xs)
+  => {?}
+  \where {
+    \func List-satisfies-p-is-equal-to-itself
+      {A : \Type} (xs : List A) (p : A -> Bool) (xs-sat-p : ListSatisfiesPredicate xs p) : xs = filter p xs
+      \elim xs
+        | nil => idp
+        | cons a xs => mcases \with {
+          | true => pmap (cons a) (List-satisfies-p-is-equal-to-itself xs p {?})
+          | false => {?}
+        }
+  }
+
 -- 2. Определите trans и sym через rewrite.
 
+\func trans' {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a'
+  => rewriteI p b -- переписываем правую часть на левую
+
+
+\func sym' {A B : \Type} {a a' : A} (p : a = a') : a' = a
+  => rewrite p idp -- почему так?
+
 -- 3. Перепешите insert-perm, insert-lem и insert-sorted через mcases.
+
+
+\func insert-lem' {A : TotalPreorder} (a a1 : A) {xs : List A}
+                 (a1<=a : a1 <= a) (p : a1 <= headDef a1 xs)
+  : a1 <= headDef a1 (insert a xs) \elim xs
+  | nil => a1<=a
+  | cons a2 xs => mcases \with {
+    | inl a2<=a => p
+    | inr a<=a2 => a1<=a
+  }
+
+\func insert-sorted' {A : TotalPreorder} (a : A) {xs : List A} (s : Sorted xs)
+  : Sorted (insert a xs) \elim xs, s
+  | nil, _ => sorted-cons <=-refl sorted-nil
+  | cons a1 xs, sorted-cons p s' => mcases \with {
+    | inl a1<=a => sorted-cons (insert-lem' a a1 a1<=a p) (insert-sorted' a s')
+    | inr a<=a1 => sorted-cons a<=a1 (sorted-cons p s')
+  }
