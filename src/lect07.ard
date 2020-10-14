@@ -1,0 +1,165 @@
+\import Function.Meta
+\import Meta
+\import Paths.Meta
+\import Utils
+
+-- 1. Полнота спецификации.
+
+-- Спецификация для некоторого значения a типа A -- это просто предикат вида P : A -> \Type.
+-- То есть спецификация -- это просто свойство элемента, которое мы хотим про него доказать.
+
+-- Спецификация корректна, если верно P a.
+-- Спецификация полна, если P x влечет x = a для любого x : A.
+
+-- Например, пусть у нас есть функция, вычисляющая факториал fac : Nat -> Nat.
+-- P1 -- корретная спецификация для fac, но не полная.
+-- \func P1 (f : Nat -> Nat) => f 3 = 6
+-- P2 -- полная, но не корректная
+-- \func P2 (f : Nat -> Nat) => Empty
+-- P3 -- полная и корректная спецификация для fac.
+-- \func P3 (f : Nat -> Nat) => \Sigma (f 0 = 1) (\Pi (n : Nat) -> f (suc n) = suc n * f n)
+
+-- Полная и корректная спецификация для функции сортировки:
+-- \func P (f : List A -> List A) => \Pi (xs : List A) -> \Sigma (isSorted (f xs)) (isPerm (f xs) xs)
+-- где isSorted xs верно тогда и только тогда, когда список xs отсортирован, а isPerm xs ys верно тогда и только список xs является перестановкой списка ys.
+
+-- Разумеется, мы хотим, чтобы спецификация была, по крайней мере, корректной.
+-- Мы можем не требовать полноты, если полную спецификацию слишком сложно проверить, и нам достаточно истинности частичной спецификации.
+-- Тем не менее полезно понимать когда спецификация является полной.
+
+-- Есть простое необходимое (и достаточное для корректных спецификаций) условие полноты, которое не зависит от элемента, для которого задается спецификация:
+-- \Pi (x y : A) -> P x -> P y -> x = y
+-- То есть должно существовать не более одного элемента, на котором предикат верен.
+
+-- 2. Корректность сортировки.
+
+\func sort {A : TotalPreorder} (xs : List A) : List A
+  | nil => nil
+  | cons a xs => insert a (sort xs)
+  \where
+    \func insert {A : TotalPreorder} (a : A) (xs : List A) : List A \elim xs
+      | nil => cons a nil
+      | cons x xs => \case totality x a \with {
+        | inl _ => cons x (insert a xs)
+        | inr _ => cons a (cons x xs)
+      }
+
+\data Perm {A : \Type} (xs ys : List A) \elim xs, ys
+  | nil, nil => perm-nil
+  | cons a xs, cons a' ys => perm-cons (a = a') (Perm xs ys)
+  | cons a (cons a1 xs), cons a1' (cons a' xs') => perm-perm (a = a') (a1 = a1') (xs = xs')
+  | xs, ys => perm-trans {zs : List A} (Perm xs zs) (Perm zs ys)
+
+\func perm-refl {A : \Type} {xs : List A} : Perm xs xs \elim xs
+  | nil => perm-nil
+  | cons a xs => perm-cons idp perm-refl
+
+\func sort-perm {A : TotalPreorder} (xs : List A) : Perm xs (sort xs) \elim xs
+  | nil => perm-nil
+  | cons a xs => perm-trans (perm-cons idp (sort-perm xs)) (insert-perm a (sort xs))
+
+  -- Perm xs (sort xs) -> Perm (cons a xs) (insert a (sort xs))
+
+  -- Perm xs ys -> Perm (cons a xs) (insert a ys)
+
+  -- Perm (cons a ys) (insert a ys)
+
+  \where {
+    \open sort
+    \func insert-perm {A : TotalPreorder} (a : A) (xs : List A)
+      : Perm (cons a xs) (insert a xs) \elim xs
+      | nil => perm-refl
+      | cons a1 xs => \case totality a1 a \as t \return
+                                            Perm (cons a (cons a1 xs)) (\case t \with {
+                                              | inl _ => cons a1 (insert a xs)
+                                              | inr _ => cons a (cons a1 xs)
+                                            }) \with {
+        | inl a1<=a => perm-trans (perm-perm idp idp idp) (perm-cons idp (insert-perm a xs))
+        | inr a<=a1 => perm-refl
+      }
+      -- Это нужно доказать
+      -- Perm (cons a xs) (insert a xs) -> Perm (cons a (cons a1 xs)) (cons a1 (insert a xs))
+
+      -- Это мы знаем
+      -- Perm (cons a xs) (insert a xs) -> Perm (cons a1 (cons a xs)) (cons a1 (insert a xs))
+  }
+
+\func headDef {A : \Type} (x : A) (xs : List A) : A \elim xs
+  | nil => x
+  | cons a _ => a
+
+\data Sorted {A : Preorder} (xs : List A) \elim xs
+  | nil => sorted-nil
+  | cons a xs => sorted-cons (a <= headDef a xs) (Sorted xs)
+
+\func sort-sorted {A : TotalPreorder} (xs : List A) : Sorted (sort xs) \elim xs
+  | nil => sorted-nil
+  | cons a xs => insert-sorted a (sort-sorted xs)
+  \where {
+    \open sort
+
+    \func insert-lem {A : TotalPreorder} (a a1 : A) {xs : List A}
+                     (a1<=a : a1 <= a) (p : a1 <= headDef a1 xs)
+                     : a1 <= headDef a1 (insert a xs) \elim xs
+      | nil => a1<=a
+      | cons a2 xs => \case totality a2 a \as t \return
+                                            a1 A.<= headDef a1 (\case t \with {
+                                              | inl _ => cons a2 (insert a xs)
+                                              | inr _ => cons a (cons a2 xs)
+                                            }) \with {
+        | inl a2<=a => p
+        | inr a<=a2 => a1<=a
+      }
+
+    \func insert-sorted {A : TotalPreorder} (a : A) {xs : List A} (s : Sorted xs)
+      : Sorted (insert a xs) \elim xs
+      | nil => sorted-cons <=-refl sorted-nil
+      | cons a1 xs => \case totality a1 a \as t, s \return
+                                                Sorted (\case t \with {
+                                                  | inl _ => cons a1 (insert a xs)
+                                                  | inr _ => cons a (cons a1 xs)
+                                                }) \with {
+        | inl a1<=a, sorted-cons p s' \as s =>
+            sorted-cons (insert-lem a a1 a1<=a p) (insert-sorted a s')
+        | inr a<=a1, _ => sorted-cons a<=a1 s
+      }
+  }
+
+
+-- 3. rewrite: pmap, trans, sym
+
+\func pmap' {A B : \Type} (f : A -> B) {a a' : A} (p : a = a') : f a = f a'
+  => rewrite p idp
+
+-- 4. run
+
+\func foo {a a' a1 a2 : Nat} (p : a = a') (q : a' = a1) (r : a1 = a2)
+  : a = a2
+  => rewrite p $
+     rewrite q $
+     rewrite r idp
+
+\func foo' {a a' a1 a2 : Nat} (p : a = a') (q : a' = a1) (r : a1 = a2)
+  : a = a2
+  => run {
+    rewrite p,
+    rewrite q,
+    rewrite r,
+    idp
+  }
+
+-- 5. mcases
+
+\func insert-perm {A : TotalPreorder} (a : A) (xs : List A)
+  : Perm (cons a xs) (insert a xs) \elim xs
+  | nil => perm-refl
+  | cons a1 xs => mcases \with {
+    | inl a1<=a => perm-trans (perm-perm idp idp idp) (perm-cons idp (insert-perm a xs))
+    | inr a<=a1 => perm-refl
+  }
+  \where {
+    \open sort
+  }
+
+\func not-isInv (x : Bool) : not (not x) = x
+  => mcases {not,2} idp
