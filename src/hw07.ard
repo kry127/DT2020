@@ -1,4 +1,5 @@
 \import Meta
+\import Paths (transportInv)
 \import Paths.Meta
 \import Utils
 \import lect07
@@ -9,7 +10,7 @@
 --    * Все элементы filter p xs удовлетворяют предикату p
 --    * Любой подсписок xs с тем же свойством является подсписком filter p xs
 
-\import hw05 (Sublist)
+\import hw05 (Sublist, sublist-nil, sublist-cons, sublist-tail)
 \import hw05 (Sublist-filtered) -- это, собственно, первое доказательство
 \import lect05 (filter)
 
@@ -36,17 +37,31 @@
 -- Achievement: try to proof it without lemma
 \func  Sublist-that-satisfies-p-is-also-sublist-of-filtered
   {A : \Type} (xs ys : List A) (p : A -> Bool) (ys-sublist-xs : Sublist ys xs) (ys-satisfies-p : ListSatisfiesPredicate ys p) : Sublist ys (filter p xs)
-  => {?}
-  \where {
-    \func List-satisfies-p-is-equal-to-itself
-      {A : \Type} (xs : List A) (p : A -> Bool) (xs-sat-p : ListSatisfiesPredicate xs p) : xs = filter p xs
-      \elim xs
-        | nil => idp
-        | cons a xs => mcases \with {
-          | true => pmap (cons a) (List-satisfies-p-is-equal-to-itself xs p {?})
-          | false => {?}
-        }
-  }
+  \elim xs, ys, ys-sublist-xs, ys-satisfies-p
+    | _, nil, _, _ => sublist-nil
+    | cons a xs, ys, sublist-tail slr, satisfies => \case p a \as ppa
+    \return
+    Sublist {A} ys (\case ppa \with {
+      | true => cons {A} a (filter {A} p xs)
+      | false => filter {A} p xs
+    })
+    \with {
+      | true => sublist-tail (Sublist-that-satisfies-p-is-also-sublist-of-filtered xs ys p slr satisfies)
+      | false => Sublist-that-satisfies-p-is-also-sublist-of-filtered xs ys p slr satisfies
+    }
+    | cons a xs, cons a1 ys, sublist-cons a=a1 ys-sublist-xs, cons-satisfies-predicate tru lsp => \case p a \as pa, idp : p a = pa
+                                                                                                      \return
+                                                                                                      Sublist {A} (cons {A} a1 ys) (\case pa \with {
+                                                                                                        | true => cons {A} a (filter {A} p xs)
+                                                                                                        | false => filter {A} p xs
+                                                                                                      })
+    \with {
+      -- straightforward by induction:
+      | true, pa=true => sublist-cons a=a1 (Sublist-that-satisfies-p-is-also-sublist-of-filtered xs ys p ys-sublist-xs lsp)
+      -- eazy contradiction branch:
+      | false, pa=false => \case (sym tru) *> (pmap p a=a1) *> pa=false \as true=fasle \with {
+      }
+    }
 
 -- 2. Определите trans и sym через rewrite.
 
@@ -55,10 +70,19 @@
 
 
 \func sym' {A B : \Type} {a a' : A} (p : a = a') : a' = a
-  => rewrite p idp -- почему так?
+  => rewriteI p idp
+-- дословно конвертируется как
+\func sym'-desugar  {A B : \Type} {a a' : A} (p : a = a') : a' = a
+  => transport (\lam x => x = a) p idp
+
+\func sym'' {A B : \Type} {a a' : A} (p : a = a') : a' = a
+  => rewrite p idp -- почему так? Это рассахаривается в "transport (\lam x => a' = x) p idp"
+-- дословно конвертируется как
+\func sym''-desugar  {A B : \Type} {a a' : A} (p : a = a') : a' = a
+  => transportInv (\lam x => a' = x) p idp
+
 
 -- 3. Перепешите insert-perm, insert-lem и insert-sorted через mcases.
-
 
 \func insert-lem' {A : TotalPreorder} (a a1 : A) {xs : List A}
                  (a1<=a : a1 <= a) (p : a1 <= headDef a1 xs)
