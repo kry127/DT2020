@@ -1,14 +1,57 @@
+\import Algebra.Meta
 \import Data.List
+\import Data.Or
+\import Logic.Meta
+\import Meta
 \import Order.LinearOrder
+\import Paths
+\import Paths.Meta
+\import hw02
 \import lect08
 \open LinearOrder
 
 -- 1. Докажите, что Perm l1 l2 тогда и только тогда, когда Insertion.sort l1 = Insertion.sort l2.
+\func perm->sort-eq {A : Dec} {l1 l2 : List A} (p : Perm l1 l2) : Insertion.sort l1 = Insertion.sort l2
+  \elim l1, l2, p
+    | nil, nil, _ => idp
+    | l1, l2, perm-trans p1 p2 => perm->sort-eq p1 *> perm->sort-eq p2
+    | :: a l1, :: a' l2, perm-:: eq subperm => rewriteI eq (pmap (Insertion.sort.insert a) (perm->sort-eq subperm))
+    | :: a (:: e l1), :: a' (:: e1 l2), perm-swap a=e1 e=a' sl1=sl2 =>
+      rewrite a=e1 (rewrite e=a' (rewrite sl1=sl2 (Insertion.sort-perm.insert-comm e1 a' (Insertion.sort l2))))
+    -- | :: a (:: e l1), :: a' (:: e1 l2), perm-swap a=e1 e=a' sl1=sl2 => rewrite a=e1 (rewrite e=a' (pmap Insertion.sort sl1=sl2))
+
+-- докажем очевидную boilerplate лемму, как мы сделали для perm-refl
+\func perm-sym-lemma {A : \Type} {xs ys : List A} (perm : Perm xs ys) : Perm ys xs \elim xs, ys, perm
+  | nil, nil, perm-nil => perm-nil
+  | l1, l2, perm-trans p1 p2 => perm-trans (perm-sym-lemma p2) (perm-sym-lemma p1)
+  | :: x xs, :: y ys, perm-:: eq subperm => perm-:: (inv eq) (perm-sym-lemma subperm)
+  | :: a (:: e l1), :: a' (:: e1 l2), perm-swap a=e1 e=a' sl1=sl2 => (perm-swap (inv e=a') (inv a=e1) (inv sl1=sl2))
+
+\func sort-eq->perm {A : Dec} {l1 l2 : List A} (p : Insertion.sort l1 = Insertion.sort l2) : Perm l1 l2
+  => \let | x => (rewriteI p (Insertion.sort-perm l2))
+    \in perm-trans (Insertion.sort-perm l1) (perm-sym-lemma x)
 
 -- 2. Докажите, что спецификация "результат является перестановкой входа и отсортирован" является полной для функции sort.
 
-\func completeness {A : Dec} (sort : List A -> List A) (l : List A) (p : Perm l (sort l)) (s : Sorted (sort l)) : sort l = Insertion.sort l
-  => {?}
+-- мы уже доказали для Insertion.sort выполнение спецификации: Insertion.sort-sorted и Insertion.sort-perm
+-- теперь необходимо показать полноту спецификации.
+\func completeness {A : Dec} (sort : List A -> List A) (l : List A) (p : Perm l (sort l)) (s : Sorted (sort l)) : sort l = Insertion.sort l =>
+  inv (perm->sort-eq p *> sort-of-sorted (sort l) s)
+  \where {
+    \func sort-of-sorted {A : Dec} (xs : List A) (s : Sorted xs) : Insertion.sort xs = xs
+    \elim xs, s
+      | nil, sorted-nil => idp
+      | :: a xs, sorted-cons a<=xs s =>
+        \let almost_proof => pmap (Insertion.sort.insert a) (sort-of-sorted xs s)
+        \in almost_proof *> safe-insert-to-sorted-list a xs a<=xs s
+
+    \func safe-insert-to-sorted-list {A : Dec} (a : A) (xs : List A) (leq : a <= headDef a xs) (s : Sorted xs) : Insertion.sort.insert a xs = a :: xs
+    \elim xs, s
+      | nil, sorted-nil => idp
+      | :: a1 xs, sorted-cons a1<=xs ss => mcases equation \with {
+        | inl a1<a => contradiction -- если a1 != a, мы не можем сначала вставлять в одном порядке, потом в другом, чтобы получить желаемый результат
+      }
+  }
 
 -- 3. Определите факториал через хвостовую рекурсию.
 --    Докажите, что он равен обычному определению факториала.
