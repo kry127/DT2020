@@ -67,7 +67,10 @@
     )
   }
 
-\func ldistr (n m k : Nat) : n * (m + k) = n * m + n * k => {?}
+-- действительно, доказывалось легко :) Либо я просто уже набил руку в Arend
+\func ldistr (n m k : Nat) : n * (m + k) = n * m + n * k \elim k
+  | 0 => idp
+  | suc k => pmap (\lam t => t + n) (ldistr n m k) *> (+-assoc (n * m) (n * k) n)
 
 -- Part II: Доказательства при помощи transport и функциональной экстенсиональности
 

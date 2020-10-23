@@ -118,7 +118,7 @@
 
 \func op (x y : Nat) => x
 
-\func ex => `op 3
+\func ex : (`op 3) 5 = 5 => idp
 
 -- 4. Bool, not, ||, if then else
 

@@ -55,3 +55,96 @@
 
 -- 3. Определите факториал через хвостовую рекурсию.
 --    Докажите, что он равен обычному определению факториала.
+\open Nat \hiding (<=)
+\import hw01 (fac)-- обычное определение факториала
+\import lect04 (+-comm)
+\import hw04 (assoc-add, rdistr, ldistr)
+
+-- очевидные теоремы о неравенстве
+\func refl-<= (m : Nat) : m Nat.<= m \elim m
+  | 0 => zero<=_
+  | suc m => suc<=suc (refl-<= m)
+
+\func refl-<=suc {m n : Nat} (p : m Nat.<= n) : m Nat.<= suc n \elim m, n, p
+  | 0, _, _ => zero<=_
+  | suc m, suc n, suc<=suc ss => suc<=suc (refl-<=suc ss)
+
+\func refl-<=pred {m n : Nat} (p : suc m Nat.<= n) : m Nat.<= n \elim n, p
+  | 0, _ => contradiction
+  | suc n, suc<=suc pp => refl-<=suc pp
+
+-- докажем коммутативность умножения, оказалось, что это не так просто
+\func *comm (m n : Nat) : m * n = n * m => *comm-fuel m n (m + n) (refl-<= (m + n))
+  \where {
+    -- пришлось применить fuel паттерн, что существенно снизило читаемость доказательства
+    -- он считает, что это не структурно-рекурсивные вызовы без fuel, который ограничивает произведение m*n
+    \func *comm-fuel (m n fuel : Nat) (fp : m + n Nat.<= fuel): m * n = n * m
+      | 0, 0, _, _ => idp
+      | 0, suc n, suc (fuel), suc<=suc ffp => *comm-fuel 0 n fuel ffp
+      | suc m, 0, suc (fuel), suc<=suc ffp => *comm-fuel m 0 fuel ffp
+      | suc m, suc n, suc (fuel), suc<=suc ffp
+      => pmap suc (pmap (`+ m) (*comm-fuel (suc m) n fuel ffp))
+      *> (inv (pmap (\lam t => suc (t + n + m)) (*comm-fuel m n fuel (refl-<=pred (transport (\lam t => t Nat.<= fuel) (suc-m+n=eq m n) ffp)))))
+      *> pmap suc (assoc-add {m * n} {n} {m})
+      *> pmap (\lam t => suc (m * n + t)) (+-comm n m)
+      *> pmap suc (inv (assoc-add {m * n} {m} {n}))
+      *> inv (pmap suc (pmap (`+ n) (inv (*comm-fuel m (suc n) fuel (transport (\lam t => t Nat.<= fuel) (suc-m+n=eq m n) ffp)))))
+
+    -- ещё одно бесячее часто встречаемое свойство, настолько очевидное, но по определению '+' само не вычисляется
+    \func suc-m+n=eq (m n : Nat) : suc m + n = suc (m + n) \elim n
+      | 0 => idp
+      | suc n => pmap suc (suc-m+n=eq m n)
+  }
+
+-- докажем ассоциативность умножения:
+\func *assoc (n m k : Nat) : (n * m) * k = n * (m * k) \elim k
+  | 0 => idp
+  | suc k => inv (rewrite (*assoc n m k) (ldistr n (m * k) m))
+
+-- теперь определим хвосторекурсивный факториал
+\func fact (a : Nat) : Nat => tail-rec-fact a 1
+  \where {
+    -- result -- это continuation нашего хвосторекурсивного вычисления
+    \func tail-rec-fact (n : Nat) (\strict result : Nat) : Nat \elim n
+      | 0 => result
+      | suc n => tail-rec-fact n (result * (suc n))
+
+    -- также докажем очевидный факт, что начальное значение аккумулятора задаёт только кратность результата
+    \func tail-rec-fact=any (m n k : Nat) : m * (tail-rec-fact n k) = tail-rec-fact n (m * k) \elim n
+      | 0 => idp
+      | suc n => rewriteI (rewriteI (*assoc m k n) (ldistr m (k * n) k)) (tail-rec-fact=any m n (k * suc n))
+
+    -- теперь мы легко можем показать, что новая функция fact обладает одним из двух основных свойств факториала:
+    \func lemma-of-step-fact-induction (a : Nat) : suc a * fact a = fact (suc a) =>
+      (tail-rec-fact=any (suc a) a 1) *> (pmap (\lam t => tail-rec-fact a (suc t)) (*comm a 1))
+  }
+
+-- Вариант 1: хотим доказать экстенсиональное равенство fact = fac
+-- Думал, что тяжело, но оказалось, что доказательство коммутативности умножения -- сложнее
+\func extensional-eq-fac=fact (a : Nat) : fac a = fact a
+  | 0 => idp -- здесь доказано первое свойство факториала 0! = 1
+  -- а строчкой ниже доказано второе свойство факториала (n+1)! = (n+1) * n!
+  | suc a => pmap (* (suc a)) (extensional-eq-fac=fact a) *> fact.lemma-of-step-fact-induction a
+
+-- теперь воспользуемся функциональной экстенсиональностью для окончательного доказательства равенства
+\func extensional-proof : fac = fact => funExt (\lam _ => Nat) fac fact extensional-eq-fac=fact
+
+-- Вариант 2: задать спецификацию факториала:
+-- идея доказательства спецификации пришла только после доказательства экстенсионального равенства fact = fac
+\func factorial-specification (f : Nat -> Nat) (fac-zero : f 0 = 1) (fac-suc : \Pi (n : Nat) -> (f (suc n)) = ((suc n) * (f n))) : f = fac
+  => inv (funExt (\lam _ => Nat) fac f (extensional-eq-f=fact f fac-zero fac-suc))
+  \where {
+    \func extensional-eq-f=fact (f : Nat -> Nat) (fac-zero : f 0 = 1) (fac-suc : \Pi (n : Nat) -> (f (suc n)) = ((suc n) * (f n))) (a : Nat) : fac a = f a
+      | f, fac-zero, fac-suc, 0 => inv fac-zero
+      | f, fac-zero, fac-suc, suc a => pmap (suc a *) (extensional-eq-f=fact f fac-zero fac-suc a) *> inv (fac-suc a)
+  }
+-- таким образом, спецификация факториала полностью определяется двумя фактами: 0! = 1 и (n+1)! = (n+1) * n!, другого ожидать не следовало
+
+-- докажем, что исходный факториал сам подходит под такую спецификацию. Очевидно, да:
+\func fac-conforms-factorial-specification : fac = fac => factorial-specification fac idp (\lam i => idp)
+-- докажем, что и факториал, определённый через хвостовую рекурсию подходит под спецификацию
+\func fact-conforms-factorial-specification : fact = fac => factorial-specification fact idp (\lam n => inv (fact.lemma-of-step-fact-induction n))
+-- как мы видим, в 'fact-conforms-factorial-specification' мы получили желаемое
+
+-- то есть для доказательства корректности любого другого факториала достаточно доказать, что он соответствует спецификации,
+-- что даст нам автоматическое равенство с функцией fac
