@@ -1,21 +1,77 @@
+\import Algebra.Group
+\import Logic.Meta
+\import Paths.Meta
+\import hw02
+\import lect07 (headDef)
+\import Paths (funExt)
 \import Utils
+\import hw08
 \import lect09
 \open Nat(+,*)
+
+-- Hint: Ctrl + Shift + O со включенным "калькулятором" включает режим нормализации
+-- Hint 2: unfold (FromDecToBool,FromBoolToDec) {?}
 
 -- 1. Докажите, что предикат isEven разрешим.
 
 \func isEven (n : Nat) => \Sigma (k : Nat) (n = 2 * k)
+\func isEven-suc {n : Nat} (p : \Sigma (k : Nat)(n = 2 * k)) : \Sigma (m : Nat) (suc (suc n) = 2 * m)
+  => (suc p.1, pmap (\lam i => (suc (suc i))) p.2)
+\func isEven-pred {n : Nat} (p : \Sigma (k : Nat)(suc (suc n) = 2 * k)) : \Sigma (m : Nat) (n = 2 * m)
+=>
+  \case p.1 \as pp, p.2 : suc(suc n) = 2 * pp \return \Sigma (m : Nat) (n = 2 * m) \with {
+    | suc n1, x => (n1, pmap (\lam i => pred (pred i)) x)
+  }
 
-\func isEven-dec : DecPred isEven => {?}
+\func isEven-dec : DecPred isEven => \lam a => isEven-decide a
+ \where {
+   \func isEven-decide (a : Nat) : Decide (isEven a)
+     | 0 => yes (0, idp)
+     | 1 => no (\lam e => \case e.1 \as ee, e.2 : 1 = 2 * ee \return Empty \with {
+       | 0, ()
+     })
+     | suc (suc a) => \case isEven-decide a \with {
+       | yes a-isEven => yes (isEven-suc a-isEven)
+       | no a-notIsEven => no (\lam e => a-notIsEven (isEven-pred e))
+     }
+ }
 
 -- 2. Докажите, что если равенство элементов A разрешимо, то и равенство элементов List A тоже разрешимо.
 
 \instance ListEq {A : \Type} (dec : Eq A) : Eq (List A)
-  | decideEq => {?}
+  | decideEq => ListEq-decide dec
+  \where {
+    \func ListEq-decide {A : \Type} (dec : Eq A) (a a' : List A) : Decide (a = a') \elim a, a'
+      | nil, nil => yes idp
+      | nil, cons a a' => no contradiction -- Дословный перевод: нет противоречия :D
+      | cons a a1, nil => no (\case __ \with {}) -- а вообще так более понятно
+      | cons a as, cons a' as' => \case decideEq a a' \with {
+        | no n => no (\lam e => n (pmap (headDef a __) e))
+        | yes a1 => \case ListEq-decide dec as as' \with {
+          | no n => no (\lam e => n (pmap tail e))
+          | yes a2 => yes (rewrite a1 (rewrite a2 idp))
+        }
+      }
+  }
 
 -- 3. Докажите, что функции FromBoolToDec и FromDecToBool взаимно обратны.
 
-\func bdb {A : \Type} (p : A -> Bool) : FromDecToBool (FromBoolToDec p) = p => {?}
+\func bdb {A : \Type} (p : A -> Bool) : FromDecToBool (FromBoolToDec p) = p =>
+  funExt (\lam _ => Bool) (FromDecToBool (FromBoolToDec p)) p
+      (\lam x => \case p x \as px, (FromBoolToDec p).2 x : Decide (T (px)) \return ((FromDecToBool (FromBoolToDec p))) x = px \with {
+        | true, yes a => \case ((FromDecToBool (FromBoolToDec p))) x \as px' \return px' = true \with {
+          | true => idp
+          | false => {?} -- не могу показать здесь противоречие, поскольку он думает (и правильно), что T(p a) и \Type -- разные
+                         -- вещи, но тогда я не могу объяснить, что он пытается вызвать FromDecToBool от yes, но получает false,
+                         -- и что это противоречие. Наверное, я в case неправильно пишу что-то -_-
+        }
+        | true, no n => \case n () \with {}
+        | false, yes a => \case a \with {}
+        | false, no n => \case ((FromDecToBool (FromBoolToDec p))) x \as px' \return px' = false \with {
+          | false => idp
+          | true => {?} -- похожая ситуация тут
+        }
+      })
 
 -- Мы не можем доказать, что FromBoolToDec (FromDecToBool P) = P, но мы можем доказать более слабое утверждение: эти предикаты логически эквивалентны.
 -- Для этого введем эквивалентность предикатов.
@@ -29,20 +85,56 @@
 
 \func id' {A : \Type} (a : A) => a
 
-\func idTest1 => id' (id' id)
-\func idTest2 => id' Maybe
-\func idTest3 => id' Functor
-\func idTest4 => id' (Functor Maybe)
-\func idTest5 (f : \Pi {A B : \Set} -> (A -> B) -> Maybe A -> Maybe B) => id' (Functor Maybe f)
+\func idTest1 : \Pi (A : \Type0) -> A -> A => id' (\suc (\suc \lp)) (id' (\suc \lp) id)
+\func idTest1' : \Pi (A : \Type \lp) -> A -> A => id' (\suc (\suc \lp)) (id' (\suc \lp) id) -- the same
+\func idTest2 : \Type \lp -> \Type \lp => id' (\suc \lp) Maybe -- \lp = 0
+\func idTest3 : \Type1 => id' (\suc (\suc \lp)) Functor
+\func idTest4 : \Type1 => id' (\suc (\suc \lp)) (Functor Maybe)
+\func idTest5 (f : \Pi {A B : \Set} -> (A -> B) -> Maybe A -> Maybe B) : \Type0 => id' (\suc \lp) (Functor Maybe f)
+\func idTest5' (f : \Pi {A B : \Set} -> (A -> B) -> Maybe A -> Maybe B) : \Prop => id' \lp (Functor Maybe f) -- что такое \Prop? Это \Type -1?
 
 -- 5. Докажите следующий принцип индукции для списков.
 
+-- идея доказательства похожа на доказательство для сильной индукции по натуральным числам
 \func List-ind
   {A : \Type}
   (E : List A -> \Type)
   (r : \Pi (xs : List A) -> (\Pi (ys : List A) -> length ys < length xs -> E ys) -> E xs)
-  (xs : List A) : E xs => {?}
+  (xs : List A) : E xs => r xs (\lam ys ys<xs => List-ind-strong E r xs ys ys<xs)
+ \where {
+   \func List-ind-strong
+     {A : \Type}
+     (E : List A -> \Type)
+     (r : \Pi (xs : List A) -> (\Pi (ys : List A) -> length ys < length xs -> E ys) -> E xs)
+     (xs ys : List A) (len-ys<len-xs : length ys < length xs) : E ys \elim xs, ys, len-ys<len-xs
+     | cons a xss, nil, Nat.suc<=suc len-ys<len-xss => r nil (\lam ys contr => \case contr \with {})
+     | cons a xss, cons y yys, Nat.suc<=suc len-ys<len-xss
+       => r (cons y yys) (\lam zs zs<s[yys] => List-ind-strong E r xss zs  (<=-trans zs<s[yys] len-ys<len-xss))
+ }
 
 -- 6. Определите div через Nat-ind.
+-- not yet done
 
-\func div (n k : Nat) (p : 0 < k) : Nat => {?}
+\data MyChurchNumeral(n : Nat) \elim n
+  | 0 => churchZero
+  | suc n' => churchSucc (MyChurchNumeral n')
+
+\func MyChurchNumeral-toNat {n : Nat} (mcn : MyChurchNumeral n) => n
+
+\func div (n k : Nat) (p : 0 < k) : Nat => MyChurchNumeral-toNat (Nat-ind (MyChurchNumeral __)
+    (\lam m indh => churchSucc (indh (m - k) {?})) n)
+
+\data MyChurchDivMod{k m n : Nat} (s : Nat) \elim m, n, s
+  | 0, 0, 0 => cdmZero
+  | m, n, s => cdmNoOverflow (n < k) (MyChurchDivMod {k} {m} {(suc n)} (suc s))
+  | m, n, s => cdmOverflow (n = suc k) (MyChurchDivMod {k} {(suc m)} {0} (suc s))
+  \where {
+    \func mcdm-div {k m n s : Nat} (mcdm : MyChurchDivMod {k} {m} {n} s) => m
+    \func mcdm-mod {k m n s : Nat} (mcdm : MyChurchDivMod {k} {m} {n} s) => n
+    \func mcdm-succ {k m n s : Nat} (mcdm : MyChurchDivMod {k} {m} {n} s) : Either (MyChurchDivMod {k} {m} {suc n} (suc s)) (MyChurchDivMod {k} {suc m} {0} (suc s))
+      \elim
+  }
+
+\func div' (n k : Nat) (p : 0 < k) : Nat => MyChurchNumeral-toNat (Nat-ind (MyChurchDivMod {k} __)
+    (\lam n indh => (indh (n - k))) n)
+
