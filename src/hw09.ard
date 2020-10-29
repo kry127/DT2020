@@ -1,7 +1,13 @@
 \import Algebra.Group
+\import Algebra.Meta
+\import Arith.Nat (NatSemiring)
 \import Logic.Meta
+\import Meta
+\import Order.LinearOrder
 \import Paths.Meta
+\import hw01 ()
 \import hw02
+\import lect02 ()
 \import lect07 (headDef)
 \import Paths (funExt)
 \import Utils
@@ -113,28 +119,46 @@
  }
 
 -- 6. Определите div через Nat-ind.
--- not yet done
 
-\data MyChurchNumeral(n : Nat) \elim n
-  | 0 => churchZero
-  | suc n' => churchSucc (MyChurchNumeral n')
 
-\func MyChurchNumeral-toNat {n : Nat} (mcn : MyChurchNumeral n) => n
-
-\func div (n k : Nat) (p : 0 < k) : Nat => MyChurchNumeral-toNat (Nat-ind (MyChurchNumeral __)
-    (\lam m indh => churchSucc (indh (m - k) {?})) n)
-
-\data MyChurchDivMod{k m n : Nat} (s : Nat) \elim m, n, s
-  | 0, 0, 0 => cdmZero
-  | m, n, s => cdmNoOverflow (n < k) (MyChurchDivMod {k} {m} {(suc n)} (suc s))
-  | m, n, s => cdmOverflow (n = suc k) (MyChurchDivMod {k} {(suc m)} {0} (suc s))
+-- мы определяем свой минус, поскольку мы хотим оставаться в домене натуральных чисел
+\func semi-minus (m n : Nat) : Nat
+  | 0, n => 0
+  | m, 0 => m
+  | suc m, suc n => semi-minus m n
   \where {
-    \func mcdm-div {k m n s : Nat} (mcdm : MyChurchDivMod {k} {m} {n} s) => m
-    \func mcdm-mod {k m n s : Nat} (mcdm : MyChurchDivMod {k} {m} {n} s) => n
-    \func mcdm-succ {k m n s : Nat} (mcdm : MyChurchDivMod {k} {m} {n} s) : Either (MyChurchDivMod {k} {m} {suc n} (suc s)) (MyChurchDivMod {k} {suc m} {0} (suc s))
-      \elim
+    -- сразу в качестве затравки доказываем утверждение из разряда "Капитан Очевидность"
+    \lemma semi-minus-<=-refl (m n : Nat) : semi-minus m n <= m
+      | 0, 0 => Nat.zero<=_
+      | 0, suc n => Nat.zero<=_
+      | suc m, 0 => refl-<= (suc m)
+      | suc m, suc n => refl-<=suc (semi-minus-<=-refl m n)
+
+    -- второе утверждение -- это как первое, но со строгим неравенством, поэтому нам нужны свидетельства положительности аргументов
+    \lemma <-refl-minus-positive (m n : Nat) (p : 0 < n) (q : 0 < m) : (semi-minus m n) < m
+      | suc m, suc n, Nat.suc<=suc _p, Nat.suc<=suc _q => Nat.suc<=suc (semi-minus-<=-refl m n)
   }
 
-\func div' (n k : Nat) (p : 0 < k) : Nat => MyChurchNumeral-toNat (Nat-ind (MyChurchDivMod {k} __)
-    (\lam n indh => (indh (n - k))) n)
+-- определим структуру данных, которая позволяет закодировать принцип деления
+-- основанный на том, что suc(n) выполняется с шагом k.
+-- То есть, когда n делает k шагов, то мы накручиваем один churchSucc, а начинается всё с churchZero в случае n < k.
+\data MyChurchNumeral (k n : Nat)
+  | churchZero (n < k)
+  | churchSucc (k <= n) (MyChurchNumeral k (semi-minus n k))
+
+\func MyChurchNumeral-toNat {k n : Nat} (mcn : MyChurchNumeral k n) => MyChurchNumeral-toNat-accu mcn 0
+ \where {
+   \func MyChurchNumeral-toNat-accu {k n : Nat} (mcn : MyChurchNumeral k n) (accu : Nat) : Nat \elim mcn
+     | churchZero _x => accu
+     | churchSucc _x mcn => MyChurchNumeral-toNat-accu mcn (suc accu)
+ }
+
+-- наконец, мы можем определить деление через Nat-ind
+\func div (n k : Nat) (p : 0 < k) : Nat => MyChurchNumeral-toNat (Nat-ind (MyChurchNumeral k __)
+    (\lam m indh => \case NatSemiring.trichotomy m k \with {
+      | LinearOrder.less m<k => (churchZero m<k)
+      | LinearOrder.equals m=k => (churchSucc (rewrite m=k (refl-<= k)) (indh (semi-minus m k) (semi-minus.<-refl-minus-positive m k p (rewrite m=k p))))
+      | LinearOrder.greater m>k => (churchSucc (refl-<=pred m>k) (indh (semi-minus m k) (semi-minus.<-refl-minus-positive m k p (<=-trans p (refl-<=pred m>k)))))
+    }) n)
+
 
