@@ -1,6 +1,7 @@
 \import Algebra.Group
 \import Algebra.Meta
 \import Arith.Nat (NatSemiring)
+\import Data.Or ()
 \import Logic.Meta
 \import Meta
 \import Order.LinearOrder
@@ -64,27 +65,36 @@
 
 \func bdb {A : \Type} (p : A -> Bool) : FromDecToBool (FromBoolToDec p) = p =>
   funExt (\lam _ => Bool) (FromDecToBool (FromBoolToDec p)) p
-      (\lam x => \case p x \as px, (FromBoolToDec p).2 x : Decide (T (px)) \return ((FromDecToBool (FromBoolToDec p))) x = px \with {
-        | true, yes a => \case ((FromDecToBool (FromBoolToDec p))) x \as px' \return px' = true \with {
-          | true => idp
-          | false => {?} -- не могу показать здесь противоречие, поскольку он думает (и правильно), что T(p a) и \Type -- разные
-                         -- вещи, но тогда я не могу объяснить, что он пытается вызвать FromDecToBool от yes, но получает false,
-                         -- и что это противоречие. Наверное, я в case неправильно пишу что-то -_-
-        }
-        | true, no n => \case n () \with {}
-        | false, yes a => \case a \with {}
-        | false, no n => \case ((FromDecToBool (FromBoolToDec p))) x \as px' \return px' = false \with {
-          | false => idp
-          | true => {?} -- похожая ситуация тут
-        }
-      })
+      (\lam x => unfold (FromBoolToDec, FromDecToBool) (\case p x \as px
+                        \return
+                            (\case \case \elim px \return Decide (T(px)) \with {
+                              | true => yes {T true} ()
+                              | false => no {T false} (\lam (x : T false) => x)
+                            } \with {
+                              | yes _ => true
+                              | no _ => false
+                            }) = px
+      \with {
+        | true => idp
+        | false => idp
+      }))
 
 -- Мы не можем доказать, что FromBoolToDec (FromDecToBool P) = P, но мы можем доказать более слабое утверждение: эти предикаты логически эквивалентны.
 -- Для этого введем эквивалентность предикатов.
 
 \func dbd {A : \Type} (P : \Sigma (P : A -> \Type) (DecPred P))
   : \Pi (x : A) -> (FromBoolToDec (FromDecToBool P)).1 x <-> P.1 x
-  => {?}
+  => \lam x => unfold (FromDecToBool, FromBoolToDec) (\case P.1 x \as p1x, P.2 x \as p2x : Decide(p1x)
+  \return
+                    T (\case p2x \with {
+                      | yes _ => true
+                      | no _ => false
+                    }) <-> p1x
+  \with {
+    | p1x, yes a => (\lam _ => a, \lam _ => ())
+    | p1x, no n => (\case __ \with {}, n)
+  })
+
 
 -- 4. Укажите явно чему равен уровень в каждом из вызовов id' ниже.
 --    Напишите явно чему равны типы всех функций idTest*.
@@ -145,20 +155,25 @@
 \data MyChurchNumeral (k n : Nat)
   | churchZero (n < k)
   | churchSucc (k <= n) (MyChurchNumeral k (semi-minus n k))
-
-\func MyChurchNumeral-toNat {k n : Nat} (mcn : MyChurchNumeral k n) => MyChurchNumeral-toNat-accu mcn 0
- \where {
-   \func MyChurchNumeral-toNat-accu {k n : Nat} (mcn : MyChurchNumeral k n) (accu : Nat) : Nat \elim mcn
-     | churchZero _x => accu
-     | churchSucc _x mcn => MyChurchNumeral-toNat-accu mcn (suc accu)
- }
+  \where {
+    \use \coerce MyChurchNumeral-toNat {k n : Nat} (mcn : MyChurchNumeral k n) : Nat \elim mcn
+          | churchZero _x => 0
+          | churchSucc _x mcn => suc (MyChurchNumeral-toNat mcn)
+  }
 
 -- наконец, мы можем определить деление через Nat-ind
-\func div (n k : Nat) (p : 0 < k) : Nat => MyChurchNumeral-toNat (Nat-ind (MyChurchNumeral k __)
-    (\lam m indh => \case NatSemiring.trichotomy m k \with {
-      | LinearOrder.less m<k => (churchZero m<k)
-      | LinearOrder.equals m=k => (churchSucc (rewrite m=k (refl-<= k)) (indh (semi-minus m k) (semi-minus.<-refl-minus-positive m k p (rewrite m=k p))))
-      | LinearOrder.greater m>k => (churchSucc (refl-<=pred m>k) (indh (semi-minus m k) (semi-minus.<-refl-minus-positive m k p (<=-trans p (refl-<=pred m>k)))))
-    }) n)
+\func div (n k : Nat) (p : 0 < k) : Nat => Nat-ind (MyChurchNumeral k __)
+    (\lam m indh => \case LinearOrder.dec<_<= m k \with {
+      | Data.Or.Or.inl m<k => churchZero m<k
+      | Data.Or.Or.inr m>=k => (churchSucc (leq-converter m>=k) (indh (semi-minus m k) (semi-minus.<-refl-minus-positive m k p (<=-trans p (leq-converter m>=k)))))
+    }) n
+    \where {
+      \func leq-converter {a b : Nat} (p : a LinearOrder.<= b) : a <= b \elim p
+        | LinearOrder.<=-equals p => rewrite p (refl-<= b)
+        | LinearOrder.<=-less _x => refl-<=pred _x
+    }
 
+-- увы, кажется, корректность этого определения div нельзя вычислительно проверить:
+\func divTest1 : div 100 5 (Nat.suc<=suc Nat.zero<=_) = 20 => idp
+\func divTest2 : div 1 1 (Nat.suc<=suc Nat.zero<=_) = 1 => unfold (div) (unfold (Nat-ind) ({?}))
 
