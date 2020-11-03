@@ -65,7 +65,7 @@
 
 \func bdb {A : \Type} (p : A -> Bool) : FromDecToBool (FromBoolToDec p) = p =>
   funExt (\lam _ => Bool) -- (FromDecToBool (FromBoolToDec p)) p
-      (\lam x => unfold (FromBoolToDec, FromDecToBool) (\case p x \as px
+      (\lam x => unfold (FromBoolToDec) (\case p x \as px
                         \return
                             (\case \case \elim px \return Decide (T(px)) \with {
                               | true => yes {T true} ()
@@ -101,7 +101,7 @@
 
 \func id' {A : \Type} (a : A) => a
 
-\func idTest1 : \Pi (A : \Type0) -> A -> A => id' (\suc (\suc \lp)) (id' (\suc \lp) id)
+\func idTest1 : \Pi (A : \Type \lp) -> A -> A => id' (\suc \lp) (id' (\suc \lp) id)
 \func idTest1' : \Pi (A : \Type \lp) -> A -> A => id' (\suc (\suc \lp)) (id' (\suc \lp) id) -- the same
 \func idTest2 : \Type \lp -> \Type \lp => id' (\suc \lp) Maybe -- \lp = 0
 \func idTest3 : \Type1 => id' (\suc (\suc \lp)) Functor
