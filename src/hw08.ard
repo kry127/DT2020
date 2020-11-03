@@ -74,21 +74,21 @@
   | suc n, suc<=suc pp => refl-<=suc pp
 
 -- докажем коммутативность умножения, оказалось, что это не так просто
-\func *comm (m n : Nat) : m * n = n * m => *comm-fuel m n (m + n) (refl-<= (m + n))
+\func *comm (m n : Nat) : m * n = n * m => *comm-fuel m n
   \where {
     -- пришлось применить fuel паттерн, что существенно снизило читаемость доказательства
     -- он считает, что это не структурно-рекурсивные вызовы без fuel, который ограничивает произведение m*n
-    \func *comm-fuel (m n fuel : Nat) (fp : m + n Nat.<= fuel): m * n = n * m
-      | 0, 0, _, _ => idp
-      | 0, suc n, suc (fuel), suc<=suc ffp => *comm-fuel 0 n fuel ffp
-      | suc m, 0, suc (fuel), suc<=suc ffp => *comm-fuel m 0 fuel ffp
-      | suc m, suc n, suc (fuel), suc<=suc ffp
-      => pmap suc (pmap (`+ m) (*comm-fuel (suc m) n fuel ffp))
-      *> (inv (pmap (\lam t => suc (t + n + m)) (*comm-fuel m n fuel (refl-<=pred (transport (\lam t => t Nat.<= fuel) (suc-m+n=eq m n) ffp)))))
+    \func *comm-fuel (m n : Nat): m * n = n * m
+      | 0, 0 => idp
+      | 0, suc n => *comm-fuel 0 n
+      | suc m, 0 => *comm-fuel m 0
+      | suc m, suc n
+      => pmap suc (pmap (`+ m) (*comm-fuel (suc m) n))
+      *> (inv (pmap (\lam t => suc (t + n + m)) (*comm-fuel m n)))
       *> pmap suc (assoc-add {m * n} {n} {m})
       *> pmap (\lam t => suc (m * n + t)) (+-comm n m)
       *> pmap suc (inv (assoc-add {m * n} {m} {n}))
-      *> inv (pmap suc (pmap (`+ n) (inv (*comm-fuel m (suc n) fuel (transport (\lam t => t Nat.<= fuel) (suc-m+n=eq m n) ffp)))))
+      *> inv (pmap suc (pmap (`+ n) (inv (*comm-fuel m (suc n)))))
 
     -- ещё одно бесячее часто встречаемое свойство, настолько очевидное, но по определению '+' само не вычисляется
     \func suc-m+n=eq (m n : Nat) : suc m + n = suc (m + n) \elim n

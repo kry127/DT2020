@@ -10,7 +10,7 @@
 \import hw02
 \import lect02 ()
 \import lect07 (headDef)
-\import Paths (funExt)
+\import lect04 (funExt)
 \import Utils
 \import hw08
 \import lect09
@@ -64,7 +64,7 @@
 -- 3. Докажите, что функции FromBoolToDec и FromDecToBool взаимно обратны.
 
 \func bdb {A : \Type} (p : A -> Bool) : FromDecToBool (FromBoolToDec p) = p =>
-  funExt (\lam _ => Bool) (FromDecToBool (FromBoolToDec p)) p
+  funExt (\lam _ => Bool) -- (FromDecToBool (FromBoolToDec p)) p
       (\lam x => unfold (FromBoolToDec, FromDecToBool) (\case p x \as px
                         \return
                             (\case \case \elim px \return Decide (T(px)) \with {
@@ -174,6 +174,6 @@
     }
 
 -- увы, кажется, корректность этого определения div нельзя вычислительно проверить:
-\func divTest1 : div 100 5 (Nat.suc<=suc Nat.zero<=_) = 20 => idp
-\func divTest2 : div 1 1 (Nat.suc<=suc Nat.zero<=_) = 1 => unfold (div) (unfold (Nat-ind) ({?}))
+-- \func divTest1 : div 100 5 (Nat.suc<=suc Nat.zero<=_) = 20 => idp
+-- \func divTest2 : div 1 1 (Nat.suc<=suc Nat.zero<=_) = 1 => unfold (div) (unfold (Nat-ind) ({?}))
 
