@@ -16,16 +16,28 @@
   | >>=-left {A B : \Type} (a : A) (k : A -> F B) : (return a >>= k) = k a
   | >>=-right {A : \Type} (m : F A) : (m >>= return) = m
   | >>=-assoc {A B C : \Type} (m : F A) (k : A -> F B) (l : B -> F C) : ((m >>= k) >>= l) = (m >>= (\lam a => k a >>= l))
-  | fmap => {?}
-  | fmap-id => {?}
-  | fmap-comp => {?}
+  | fmap => \lam k fa => fa >>= (\lam x => return (k x))
+  | fmap-id {A : \Type} (y : F A) => >>=-right y
+  | fmap-comp {A B C : \Type} (f : A -> B) (g : B -> C) (a : F A) => \let
+    | trivial : (a >>= (\lam x => return (f x)) >>= (\lam x => return (g x))) = (a >>= (\lam x => return (f x)) >>= (\lam x => return (g x))) => idp
+    | step1 => >>=-assoc a (\lam x => return (f x)) (\lam x => return (g x))
+    | step2-internal (a : A)  => >>=-left (f a) (\lam x => return (g x))
+    | step2-internal'  => path (\lam i => \lam a => step2-internal a @ i)
+    | step2 => pmap (\lam ttt => a >>= ttt) step2-internal'
+                                                                     \in sym (idp *> step1 *> step2)
 
 \instance MaybeMonad : Monad Maybe
   | return => just
   | >>= m k => maybe nothing k m
-  | >>=-left => {?}
-  | >>=-right => {?}
-  | >>=-assoc => {?}
+  | >>=-left => \lam a k => idp
+  | >>=-right => \lam mb => \case \elim mb \with {
+    | nothing => idp
+    | just a => idp
+  }
+  | >>=-assoc => \lam ma k1 k2 => \case \elim ma \with {
+    | nothing => idp
+    | just a => idp
+  }
 
 -- 1. Лямбда исчисление.
 

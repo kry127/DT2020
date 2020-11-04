@@ -1,5 +1,6 @@
+\import Meta
 \import Utils
-\import lect09 (Decide)
+\import lect09 (Decide, no, yes)
 \import lect10
 
 -- 1. Закончите определение \instance Monad для Term.
@@ -41,18 +42,25 @@
 -- 3. Стратегия редукции -- это функция, которая каждому терму сопоставляет либо некоторый терм, к которому он редуцируется за 1 шаг, либо доказательство, что таких термов нет.
 --    Определите любую стратегию редукции.
 
-\func strategy {V : \Type} (t : Term V) : Decide (\Sigma (s : Term V) (Red1 t s)) => {?}
+\func strategy {V : \Type} (t : Term V) : Decide (\Sigma (s : Term V) (Red1 t s)) \elim t
+  | var v => no (\lam s => \case s.2 \with {})
+  | unit => no (\lam s => \case s.2 \with {})
+  | app t1 t2 => {?}
+  | lam t => \case strategy t \with {
+    | yes a => {?}
+    | no n => no (\lam s => n s)
+  }
 
 -- 4. Докажите, что подтермы достижимого терма достижимы.
 
-\func appAccLeft {V : \Type} {t s : Term V} (a : Acc Red1 (app t s)) : Acc Red1 t
-  => {?}
+\func appAccLeft {V : \Type} {t s : Term V} (a : Acc Red1 (app t s)) : Acc Red1 t \elim a
+  | acc _x => acc (\lam t' t->t' => appAccLeft {V} {t'} {s} (_x (app t' s) (appLeft t->t' idp)))
 
-\func appAccRight {V : \Type} {t s : Term V} (a : Acc Red1 (app t s)) : Acc Red1 t
-  => {?}
+\func appAccRight {V : \Type} {t s : Term V} (a : Acc Red1 (app t s)) : Acc Red1 s \elim a
+  | acc _x => acc (\lam s' s->s' => appAccRight {V} {t} {s'} (_x (app t s') (appRight idp s->s')))
 
-\func subLamAcc {V : \Type} {t : Term (Maybe V)} (a : Acc Red1 (lam t)) : Acc Red1 t
-  => {?}
+\func subLamAcc {V : \Type} {t : Term (Maybe V)} (a : Acc Red1 (lam t)) : Acc Red1 t \elim a
+  | acc _x => acc (\lam t' t->t' => subLamAcc {V} {t'} (_x (lam t') (lamRed t->t')))
 
 -- 5. Докажите следующую обобщенную лемму о подстановке и выведите из нее обычную версию: если Г, x : A |- b : B и Г |- a : A, то Г |- b[a/x] : B.
 
