@@ -1,5 +1,7 @@
 \import Meta
+\import Paths.Meta
 \import Utils
+\import lect04 (funExt)
 \import lect09 (Decide, no, yes)
 \import lect10
 
@@ -15,7 +17,7 @@
   | >>=-left {A B : \Type} (a : A) (k : A -> F B) : (return a >>= k) = k a
   | >>=-right {A : \Type} (m : F A) : (m >>= return) = m
   | >>=-assoc {A B C : \Type} (m : F A) (k : A -> F B) (l : B -> F C) : ((m >>= k) >>= l) = (m >>= (\lam a => k a >>= l))
-  | fmap => \lam k fa => fa >>= (\lam x => return (k x))
+  | fmap {A B : \Type} (f : A -> B) => __ >>= (\lam x => return (f x))
   | fmap-id {A : \Type} (y : F A) => >>=-right y
   | fmap-comp {A B C : \Type} (f : A -> B) (g : B -> C) (a : F A) => \let
     | trivial : (a >>= (\lam x => return (f x)) >>= (\lam x => return (g x))) = (a >>= (\lam x => return (f x)) >>= (\lam x => return (g x))) => idp
@@ -58,7 +60,7 @@
 \func liftM {A B : \Type} (k : A -> Term B) (m : Maybe A) : Term (Maybe B)
   => maybe (var nothing) (\lam a => termMap just (k a)) m
 
-\instance TermMonad : Monad Term
+\instance TermMonad : Monad (Term)
   | return => var
   | \infixl 1 >>= {A B : \Type} (t : Term A) (k : A -> Term B) : Term B \elim t {
     | var v => k v
@@ -66,10 +68,37 @@
     | app t1 t2 => app (t1 >>= k) (t2 >>= k)
     | lam t => lam (t >>= liftM k)
   }
-  | >>=-left => {?}
-  | >>=-right => {?}
-  | >>=-assoc => {?}
+  | >>=-left => \lam a k => idp
+  | >>=-right => \case \elim __ \with {
+    | var v => idp
+    | unit => idp
+    | app p0 p1 => rewrite (>>=-right-var p0) (rewrite (>>=-right-var p1) idp)
+    | lam p0 => rewrite liftM-id (rewrite (>>=-right-var p0) idp)
+  }
+  | >>=-assoc => >>=-assoc-recursive
+  \where {
+    -- some lemmas for breaking 'dependent cycle'
+    \func liftM-id {A : \Type}: (liftM {A} var) = var => funExt (\lam _ => Term (Maybe A)) {liftM var __} {var __} liftM-id'
+    \func liftM-id' {A : \Type} (v : Maybe A) : (liftM var v) = var v \elim v
+      | nothing => unfold (liftM) idp
+      | just a => unfold (liftM) idp
 
+    \func >>=-right-var {A : \Type} (tt : Term A) : (tt >>= var) = tt \elim tt
+      | var v => idp
+      | unit => idp
+      | app tt1 tt2 => rewrite (>>=-right-var tt1) (rewrite (>>=-right-var tt2) idp)
+      | lam tt => rewrite liftM-id (rewrite (>>=-right-var tt) idp)
+
+    \func >>=-assoc-recursive {A B C : \Type} (m : Term A) (k : A -> Term B) (l : B -> Term C) : ((m >>= k) >>= l) = (m >>= (\lam a => k a >>= l))
+      \elim m
+        | var v => idp
+        | unit => idp
+        | app m1 m2 => rewriteI (>>=-assoc-recursive m1 k l) (rewriteI (>>=-assoc-recursive m2 k l) idp)
+        | lam m => pmap lam (>>=-assoc-recursive m (liftM k) (liftM l) *> (pmap (m >>= __) (>>=-liftM-lemma k l)))
+
+    \func >>=-liftM-lemma {A B C : \Type} (k : A -> Term B) (l : B -> Term C): (\lam a => liftM k a >>= liftM l) = liftM (\lam a => k a >>= l)
+      => {?}
+  }
 -- 2. Определите отношение многошаговой редукции на Term.
 
 \func Red {V : \Type} (t s : Term V) : \Type => {?}
