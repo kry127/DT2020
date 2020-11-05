@@ -31,7 +31,7 @@
   | var v => var (f v)
   | unit => unit
   | app t1 t2 => app (termMap f t1) (termMap f t2)
-  | lam t => lam (termMap (fmap f) t)
+  | lam t => lam (termMap (maybe nothing (\lam x => just (f x))) t)
 
 {-
 -- это некорректное определение termMap just
