@@ -24,7 +24,7 @@
     | appLeft (Red1 t1 s1) (t2 = s2)
     | appRight (t1 = s1) (Red1 t2 s2)
   }
-  | app t a, s => beta (f : Term (Maybe V)) (lam f = t) ((f >>= maybe a var) = s)
+  | app t a, s => beta (f : Term (Maybe V)) (lam f = t) ((f TermMonad.>>= maybe a var) = s)
 
 -- f : Term (Maybe A)
 -- a : Term A
