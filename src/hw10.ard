@@ -1,4 +1,6 @@
+\import Algebra.Meta
 \import Meta
+\import Paths (inv)
 \import Paths.Meta
 \import Utils
 \import lect04 (funExt)
@@ -97,11 +99,26 @@
         | lam m => pmap lam (>>=-assoc-recursive m (liftM k) (liftM l) *> (pmap (m >>= __) (>>=-liftM-lemma k l)))
 
     \func >>=-liftM-lemma {A B C : \Type} (k : A -> Term B) (l : B -> Term C): (\lam a => liftM k a >>= liftM l) = liftM (\lam a => k a >>= l)
-      => {?}
+      => path (\lam i ma => >>=-liftM-lemma' k l ma @ i)
+
+    \func >>=-liftM-lemma' {A B C : \Type} (k : A -> Term B) (l : B -> Term C) (a : Maybe(A)) : (liftM k a >>= liftM l) = liftM (\lam a => k a >>= l) a
+      \elim a
+        | nothing => unfold (liftM) idp
+        | just a => unfold (liftM) (\case k a \as ka
+        \return (termMap just ka >>= maybe (var nothing) (\lam a => termMap just (l a))) = termMap just (ka >>= l)
+        \with {
+          | var v => idp
+          | unit => idp
+          | app ka1 ka2 => {?}
+          | lam ka => {?}
+        })
   }
 -- 2. Определите отношение многошаговой редукции на Term.
 
-\func Red {V : \Type} (t s : Term V) : \Type => {?}
+-- через \func не вышло, опять \level ругается
+\data Red {V : \Type} (t s : Term V) \elim t, s
+  | t, s => Red-refl (t = s)
+  | t, s => Red-trans (u : Term V) (Red1 t u) (Red u s)
 
 -- 3. Стратегия редукции -- это функция, которая каждому терму сопоставляет либо некоторый терм, к которому он редуцируется за 1 шаг, либо доказательство, что таких термов нет.
 --    Определите любую стратегию редукции.
@@ -109,10 +126,76 @@
 \func strategy {V : \Type} (t : Term V) : Decide (\Sigma (s : Term V) (Red1 t s)) \elim t
   | var v => no (\lam s => \case s.2 \with {})
   | unit => no (\lam s => \case s.2 \with {})
-  | app t1 t2 => {?}
+  | app t1 t2 => \case strategy t1 \with { -- если левая часть редуцируется
+    | yes a => yes (app a.1 t2, appLeft a.2 idp) -- то и всё выражение редуцируется
+    | no no_left => \case strategy t2 \with { -- если правая часть редуцируется
+      | yes a => yes (app t1 a.1, appRight idp a.2) -- то и всё выражение редуцируется
+      | no no_right => \case t1 \as tt1, idp : tt1 = t1, no_left : Not(\Sigma (s : Term V) (Red1 tt1 s))
+                             \return Decide (\Sigma (s : Term V) (Red1 (app tt1 t2) s))
+      \with {
+        -- если ни левая, ни правая часть не редуцируется, то есть шанс, что левая часть выражения -- лямбда
+        | lam tt1, p, n => yes (tt1 TermMonad.>>= maybe t2 var, (beta tt1 idp idp))
+
+        -- иначе, ВСЁ ОСТАЛЬНОЕ НЕ РЕДУЦИРУЕТСЯ!
+        -- отдельно разбираем var в левой части аппликации
+        | var v, p, n => no (\lam s => \case s.1 \as s1, s.2 : Red1 (app (var v) t2) s1 \with {
+          | var v1, r => \case r \with {
+            | beta f p1 p2 => \case p1 \with {}
+          }
+          | unit, r => \case r \with {
+            | beta f p1 p2 => \case p1 \with {}
+          }
+          | app s1 s2, r => \case r \with {
+            | beta f p1 p2 => \case p1 \with {}
+            | appLeft r1 p1 => \case r1 \with {}
+            | appRight p1 r1 => no_right (s2, r1)
+          }
+          | lam s1, r => \case r \with {
+            | beta f p1 p2 => \case p1 \with {}
+          }
+        })
+        -- отдельно разбираем unit в левой части аппликации
+        | unit, p, n => no (\lam s => \case s.1 \as s1, s.2 : Red1 (app unit t2) s1 \with {
+          | var v1, r => \case r \with {
+            | beta f p1 p2 => \case p1 \with {}
+          }
+          | unit, r => \case r \with {
+            | beta f p1 p2 => \case p1 \with {}
+          }
+          | app s1 s2, r => \case r \with {
+            | beta f p1 p2 => \case p1 \with {}
+            | appLeft r1 p1 => \case r1 \with {}
+            | appRight p1 r1 => no_right (s2, r1)
+          }
+          | lam s1, r => \case r \with {
+            | beta f p1 p2 => \case p1 \with {}
+          }
+        })
+        -- отдельно разбираем аппликацию в левой части аппликации
+        | app tt1 tt2, p, n => no (\lam s => \case s.1 \as s1, s.2 : Red1 (app (app tt1 tt2) t2) s1 \with {
+          | var v1, r => \case r \with {
+            | beta f p1 p2 => \case p1 \with {}
+          }
+          | unit, r => \case r \with {
+            | beta f p1 p2 => \case p1 \with {}
+          }
+          | app s1 s2, r => \case r \with {
+            | beta f p1 p2 => \case p1 \with {}
+            | appLeft r1 p1 => no_left (s1, rewriteI p r1)
+            | appRight p1 r1 => no_right (s2, r1)
+          }
+          | lam s1, r => \case r \with {
+            | beta f p1 p2 => \case p1 \with {}
+          }
+        })
+      }
+    }
+  }
   | lam t => \case strategy t \with {
-    | yes a => {?}
-    | no n => no (\lam s => n s)
+    | yes a => yes (lam a.1, lamRed a.2)
+    | no n => no (\lam s => \case s.1 \as s1, s.2 : Red1 (lam t) s1 \with {
+      | lam s1, lamRed r => n (s1, r)
+    })
   }
 
 -- 4. Докажите, что подтермы достижимого терма достижимы.
