@@ -101,6 +101,32 @@
   | var v, T => varType (ctx v = T)
   | app f a, B => appType {A : Type} (hasType ctx a A) (hasType ctx f (Arr A B))
   | lam t, Arr A B => lamType (hasType (maybe A ctx) t B)
+  \where {
+    \func lamSubstLemma {V : \Type} {A B : Type} {t : Term V} {ctx : V -> Type} (p : hasType ctx t B)
+      : hasType (maybe A ctx) (termMap just t) B \elim B, t, p
+      | Unit, unit, unitType => unitType
+      | _, var v, varType p => varType p
+      | B, app t1 t2, appType p1 p2 => \let
+                                        | l1 => lamSubstLemma {V} {A} p1
+                                        | l2 => lamSubstLemma {V} {A} p2
+                                       \in appType l1 l2
+      -- это сложная ветка:
+      | Arr T1 T2, lam t, lamType h  => lamType (lamSubstLemma' {V} {A} {T2} {T1} {t} {ctx} h)
+
+    -- пробовал доказать через "прокидывание" типа внутрь, но тогда нужно таких лемм очень много
+    \func lamSubstLemma' {V : \Type} {A B X : Type} {t : Term (Maybe V)} {ctx : V -> Type} (p : hasType (maybe X ctx) t B)
+      : hasType (maybe X (maybe A ctx)) (termMap (maybe nothing (\lam x => just (just x))) t) B \elim B, t, p
+      | Unit, unit, unitType => unitType
+      | _, var v, varType p => \case \elim v, p \with {
+        | nothing, pp => varType pp
+        | just a, pp => varType pp
+      }
+      | B, app t1 t2, appType p1 p2 => \let
+                                         | l1 => lamSubstLemma' {V} {A} p1
+                                         | l2 => lamSubstLemma' {V} {A} p2
+                                       \in appType l1 l2
+      | Arr B1 B2, lam t, lamType p => {?} -- не понятно, как доказать...
+  }
 
 -- 4. Типизируемые термы достижимы.
 

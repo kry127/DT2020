@@ -119,6 +119,10 @@
 \data Red {V : \Type} (t s : Term V) \elim t, s
   | t, s => Red-refl (t = s)
   | t, s => Red-trans (u : Term V) (Red1 t u) (Red u s)
+  \where {
+    \func Red1-is-Red {V : \Type} {t u : Term V} (x : Red1 t u) : Red t u
+      => Red-trans u x (Red-refl idp)
+  }
 
 -- 3. Стратегия редукции -- это функция, которая каждому терму сопоставляет либо некоторый терм, к которому он редуцируется за 1 шаг, либо доказательство, что таких термов нет.
 --    Определите любую стратегию редукции.
@@ -214,12 +218,61 @@
 \func substLem {U V : \Type} (ctx : U -> Type) (b : Term U) (B : Type) (h : hasType ctx b B)
                (ctx' : V -> Type) (a : U -> Term V) (h' : \Pi (u : U) -> hasType ctx' (a u) (ctx u))
   : hasType ctx' (b >>= a) B
-  => {?}
+  \elim b, B, h
+    | unit, Unit, unitType => unitType
+    | var v, B, varType p => \case var v >>= a \as x, idp : a v = x \return hasType ctx' x B \with {
+      | var v1, pp => rewriteI p (rewriteI pp (h' v))
+      | unit, pp => rewriteI p (transport (\lam x => hasType ctx' x (ctx v)) pp (h' v))
+      | app t t1, pp => rewriteI p (rewriteI pp (h' v))
+      | lam t, pp => rewriteI p (rewriteI pp (h' v))
+    }
+    | app b1 b2, B, appType {A} h2 h1 =>\let
+         | l1 => substLem ctx b1  (Arr A B) h1 ctx' a h'
+         | l2 => substLem ctx b2  A h2 ctx' a h'
+         | l3 => appType l2 l1
+      \in \case app b1 b2 >>= a \as x, idp : app (b1 >>= a) (b2 >>= a) = x \return hasType ctx' x B \with {
+      | var v, pp => rewriteI pp l3
+      | unit, pp => transport (\lam x => hasType ctx' x B) pp l3
+      | app t t1, pp => rewriteI pp l3
+      | lam t, pp => rewriteI pp l3
+    }
+    | lam b, Arr A B, lamType h => \let
+        | l1 => substLem (maybe A ctx) b B h (maybe A ctx') (liftM a) (\lam mu => \case \elim mu \with {
+          | nothing => unfold (liftM) (varType idp)
+          | just a1 => unfold (liftM) ((hasType.lamSubstLemma (h' a1)))
+        })
+      \in lamType l1
 
-\func substLem1 => {?}
+\func substLem1 {U : \Type} {ctx : U -> Type} {a : Term U} (b : Term (Maybe U)) {A B : Type} (g : hasType (maybe A ctx) b B) (h : hasType ctx a A)
+  : (hasType ctx (b >>= maybe a var) B) => substLem (maybe A ctx) b B g ctx (maybe a var)
+                                            (\lam u => \case \elim u \with {
+                                              | nothing => h
+                                              | just a1 => varType idp
+                                            })
+--\func substLem {U V : \Type} (ctx : U -> Type) (b : Term U) (B : Type) (h : hasType ctx b B)
+--               (ctx' : V -> Type) (a : U -> Term V) (h' : \Pi (u : U) -> hasType ctx' (a u) (ctx u))
+--  : hasType ctx' (b >>= a) B
+--
 
 -- 6. Докажите, что если Г |- a : A и Red a a', то Г |- a' : A
 
 \func redLem {V : \Type} {ctx : V -> Type} {a a' : Term V} (r : Red a a') {A : Type} (h : hasType ctx a A)
   : hasType ctx a' A
-  => {?}
+  \elim a, r, A, h
+    | _, Red-refl p, _, h => rewriteI p h
+    | var v, Red-trans u () rn, _, _
+    | unit, Red-trans u () rn, _, _
+    | app a1 a2, Red-trans u r1 rn, B, at => \let | x => redLem1 {V} {ctx} {app a1 a2} {u} r1 {B} at \in redLem rn x
+    | lam a, Red-trans u r1 rn, B, h => \let | x => redLem1 {V} {ctx} {lam a} {u} r1 {B} h \in redLem rn x
+  \where {
+    \func redLem1 {V : \Type} {ctx : V -> Type} {a a' : Term V} (r : Red1 a a') {A : Type} (h : hasType ctx a A)
+      : hasType ctx a' A
+    \elim a, a', r, A, h
+      | var v, _, (), _, _
+      | unit, _, (), _, _
+      | app a1 a2, unit, beta f p p1, Unit, appType h1 h2 => unitType
+      | app a1 a2, app a'1 a'2, appLeft r p, B, appType h1 h2 => \let | x => redLem1 r h2 \in rewriteI p (appType h1 x)
+      | app a1 a2, app a'1 a'2, appRight p r, B, appType h1 h2 => \let | x => redLem1 r h1 \in rewriteI p (appType x h2)
+      | lam a, lam a', lamRed r, Arr A1 A2, lamType t => lamType (redLem1 r t)
+      | app a1 a2, x, beta f idp p, B, appType h1 (lamType t) => rewriteI p (substLem1 f t h1)
+  }
