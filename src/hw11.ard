@@ -1,4 +1,10 @@
-\import lect09 (Decide)
+\import Algebra.Meta
+\import Arith.Nat (pred)
+\import Logic.Meta
+\import Meta
+\import Paths (inv)
+\import hw11 ()
+\import lect09 (Decide, no, yes)
 \import lect11
 \import Utils \hiding (<=-refl)
 
@@ -9,22 +15,30 @@
 -- Композиция функций
 \func \fixr 9 o {A B C : \Type} (g : B -> C) (f : A -> B) => \lam a => g (f a)
 
-\func o-inj {A B C : \Type} (f : A -> B) (g : B -> C) (p : isInj f) (q : isInj g) : isInj (g `o` f) => {?}
+\func o-inj {A B C : \Type} (f : A -> B) (g : B -> C) (p : isInj f) (q : isInj g) : isInj (g `o` f) =>
+  (\lam a a' compeq => p a a' (\case f a \as b, f a' \as b', compeq : g b = g b' \return b = b' \with {
+    b, b', cpeq => q b b' cpeq
+  }))
 
-\func o-inj' {A B C : \Type} (f : A -> B) (g : B -> C) (p : isInj (g `o` f)) : isInj f => {?}
+\func o-inj' {A B C : \Type} (f : A -> B) (g : B -> C) (p : isInj (g `o` f)) : isInj f =>
+  \lam a a' compeq => p a a' (pmap g compeq)
 
 -- 2. Определите предикат "делится на 3 или на 5" так, чтобы он возвращал утверждения.
 --    Докажите, что MultipleOf3Or5 вкладывается в ℕ.
 
-\func isMultipleOf3Or5 (n : Nat) : \Type => {?}
 
-\func isMultipleOf3Or5-isProp (n : Nat) : isProp (isMultipleOf3Or5 n) => {?}
+\func isMultipleOf3Or5 (n : Nat) : \Type => \Sigma (mod3 n = 0 -> Empty) (mod5 n = 0 -> Empty) -> Empty
+
+\func isMultipleOf3Or5-isProp (n : Nat) : isProp (isMultipleOf3Or5 n) => Impl-isProp (Empty-isProp)
 
 \func MultipleOf3Or5 => \Sigma (n : Nat) (isMultipleOf3Or5 n)
 
 \func Mul-inc (m : MultipleOf3Or5) => m.1
 
-\func Mul-inc-isInj : isInj Mul-inc => {?}
+\func Mul-inc-isInj : isInj Mul-inc =>
+  \lam a a' p => \let
+                | x => isMultipleOf3Or5-isProp a'.1
+    \in sigmaEq isMultipleOf3Or5 a a' p (x (transport isMultipleOf3Or5 p a.2) a'.2)
 
 -- 3. Мы будем говорить, что тип A тривиален, если существует элемент в A, такой что любой другой элемент в A равен ему.
 --    Докажите, что тип A тривиален тогда и только тогда, когда A является утверждением и A населен.
@@ -33,11 +47,20 @@
 
 \func \infix 1 <-> (A B : \Type) => \Sigma (A -> B) (B -> A)
 
-\func isTriv-lem (A : \Type) : isTriv A <-> (\Sigma (isProp A) A) => {?}
+\func isTriv-lem (A : \Type) : isTriv A <-> (\Sigma (isProp A) A) => (isTriv-lem-> A, isTriv-lem<- A)
+ \where {
+   \func isTriv-lem<- (A : \Type) (hotel? : (\Sigma (isProp A) A)) : isTriv A
+     => (hotel?.2, \lam x => hotel?.1 hotel?.2 x)
+
+   \func isTriv-lem-> (A : \Type) (trivago : isTriv A) : (\Sigma (isProp A) A)
+     => (\lam x y => (inv (trivago.2 x)) *> trivago.2 y, trivago.1)
+
+ }
 
 -- 4. Докажите, что Either не является утверждением в общем случаем.
 
-\func Either-isProp (p : \Pi {A B : \Type} (pA : isProp A) (pB : isProp B) -> isProp (Either A B)) : Empty => {?}
+\func Either-isProp (p : \Pi {A B : \Type} (pA : isProp A) (pB : isProp B) -> isProp (Either A B)) : Empty
+  => \case p {\Sigma} {\Sigma} Unit-isProp Unit-isProp (Utils.inl ()) (Utils.inr ()) \with {}
 
 -- 5. Докажите, что LessOrEq является предикатом.
 
@@ -45,7 +68,13 @@
   | 0, m => z<=n
   | suc n, suc m => s<=s (LessOrEq n m)
 
-\func LessOrEq-isProp {n m : Nat} : isProp (LessOrEq n m) => {?}
+\func LessOrEq-isProp {n m : Nat} : isProp (LessOrEq n m) => \lam x y => LessOrEq-isProp-recursive n m x y
+  \where {
+    \func LessOrEq-isProp-recursive (n m : Nat) (x y : LessOrEq n m) : x = y
+      | 0, 0, z<=n, z<=n => idp
+      | 0, suc m, z<=n, z<=n => idp
+      | suc n, suc m, s<=s x, s<=s y => pmap (s<=s) (LessOrEq-isProp-recursive n m x y)
+  }
 
 -- 6. Докажте, что ReflClosure LessOrEq не является предикатом, а ReflClosure (\lam x y => T (x < y)) является.
 
@@ -58,18 +87,58 @@
   | refl (x = y)
   | inc (R x y)
 
-\func ReflClosure_<-isProp (n m : Nat) : isProp (ReflClosure (\lam x y => T (x < y)) n m) => {?}
+\func Nat-isSet : isSet Nat
+  => retract-isProp {Nat} {List (\Sigma)} (List-isSet (Unit-isSet)) {?} {?} {?}
+\func ReflClosure_<-isProp (n m : Nat) : isProp (ReflClosure (\lam x y => T (x < y)) n m) => \lam x y => ReflClosure_<-isProp-refl n m x y
+  \where {
+    \func ReflClosure_<-isProp-refl (n m : Nat) (x y : ReflClosure (\lam x y => T (x < y)) n m) : x = y
+      | 0, 0, _, inc ()
+      | 0, 0, inc (), _
+      | 0, suc _, refl (), _
+      | 0, suc _, _, refl ()
+      | 0, suc m, inc r, inc s => pmap inc (Unit-isProp r s)
+      | suc _, 0, refl (), _
+      | suc _, 0, inc (), _
+      | n, m, refl x, refl y => pmap refl (equality-isProp Nat-isSet n m x y)
+      | suc n, suc m, inc r, refl y =>  \case eq-pred-lemma y \as eq, n < m \as leq, idp : n < m = leq, r : T(leq) \with {
+        | eq, true, p, n-leq-m-true => \let
+          | n-leq-m-false => transport (\lam k => n < k = false) eq (<-refl-is-false n)
+                                       \in contradiction
+      }
+      | suc n, suc m, refl x, inc s => \case eq-pred-lemma x \as eq, n < m \as leq, idp : n < m = leq, s : T(leq) \with {
+        | eq, true, p, n-leq-m-true => \let
+                               | n-leq-m-false => transport (\lam k => n < k = false) eq (<-refl-is-false n)
+                            \in contradiction
+      }
+      | suc n, suc m, inc r, inc s => \let
+        x =>  (\case n < m \as leq, r \as ru : T(leq), s \as su : T(leq) \return ru = su \with {
+        | true, ru, su => Unit-isProp ru su
+      }) \in pmap inc x
 
-\func ReflClosure_<=-isNotProp (p : \Pi (n m : Nat) -> isProp (ReflClosure LessOrEq n m)) : Empty => {?}
+    \func eq-pred-lemma {m n : Nat} (p : suc m = suc n) : m = n \elim m, n, p
+      | 0, 0, p => idp
+      | suc m, suc n, p => pmap suc (eq-pred-lemma {m} {n} p)
+    \func <-refl-is-false (n : Nat) : n < n = false
+      | 0 => idp
+      | suc n => <-refl-is-false n
+  }
+
+
+\func ReflClosure_<=-isNotProp (p : \Pi (n m : Nat) -> isProp (ReflClosure LessOrEq n m)) : Empty
+  => \case p 0 0 (refl idp) (inc z<=n) \with {}
 
 -- 7. Докажите, что если тип A вкладывается в тип B и B является утверждением, то и A является утверждением.
 
-\func sub-isProp {A B : \Type} (f : A -> B) (p : isInj f) (q : isProp B) : isProp A => {?}
+\func sub-isProp {A B : \Type} (f : A -> B) (p : isInj f) (q : isProp B) : isProp A =>
+  \lam a b => p a b (q (f a) (f b))
 
 -- 8. Докажите, что тип с разрешимым равенством являетя множеством.
 
 \func Dec-isSet {A : \Type} (dec : \Pi (x y : A) -> Decide (x = y)) : isSet A
-  => {?}
+  => \lam x y p q => \case dec x y \with {
+    | yes a => {?}
+    | no n => \case n p \with {}
+  }
 
 -- 9. Если A и B являются множествами, то A `Or` B тоже является множеством.
 
@@ -77,7 +146,13 @@
   | inl A
   | inr B
 
-\func or-isSet {A B : \Type} (p : isSet A) (q : isSet B) : isSet (Or A B) => {?}
+\func or-isSet {A B : \Type} (p : isSet A) (q : isSet B) : isSet (Or A B) =>
+  \lam x y => \case \elim x, \elim y \with {
+    | inl a, inl b => \lam u v => {?}
+    | inl a, inr b => {?}
+    | inr b, inl a => {?}
+    | inr b, inr b1 => {?}
+  }
 
 -- 10. Если B x является множеством, то \Pi (x : A) -> B x тоже является множеством.
 
