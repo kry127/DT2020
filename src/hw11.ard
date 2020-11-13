@@ -88,7 +88,10 @@
   | inc (R x y)
 
 \func Nat-isSet : isSet Nat
-  => retract-isProp {Nat} {List (\Sigma)} (List-isSet (Unit-isSet)) {?} {?} {?}
+  => \lam x y => retract-isProp {x = y} Unit-isProp
+      (\lam p => ()) (\lam t => {?}) (\lam p => \case \elim y, \elim p \with {
+        | y, idp => idp
+      })
 \func ReflClosure_<-isProp (n m : Nat) : isProp (ReflClosure (\lam x y => T (x < y)) n m) => \lam x y => ReflClosure_<-isProp-refl n m x y
   \where {
     \func ReflClosure_<-isProp-refl (n m : Nat) (x y : ReflClosure (\lam x y => T (x < y)) n m) : x = y
@@ -134,11 +137,22 @@
 
 -- 8. Докажите, что тип с разрешимым равенством являетя множеством.
 
-\func Dec-isSet {A : \Type} (dec : \Pi (x y : A) -> Decide (x = y)) : isSet A
-  => \lam x y p q => \case dec x y \with {
-    | yes a => {?}
-    | no n => \case n p \with {}
+\func Either-Unit-Empty-isProp : isProp (Either (\Sigma) (Empty))
+  => \lam x y => \case \elim x, \elim y \with {
+    | Either.inl a, Either.inl b => pmap Either.inl (Unit-isProp a b)
+    | Either.inl a, Either.inr b => \case b \with {}
+    | Either.inr b, Either.inl a => \case b \with {}
+    | Either.inr a, Either.inr b => \case b \with {}
   }
+
+\func Dec-isSet {A : \Type} (dec : \Pi (x y : A) -> Decide (x = y)) : isSet A
+  =>  \lam x y => retract-isProp {x = y} Unit-isProp
+      (\lam t => ()) (\lam t => \case dec x y \with {
+        | yes a => a
+        | no n => {?}
+      }) (\lam p => \case \elim y, \elim p \with {
+        | y, idp => idp
+      })
 
 -- 9. Если A и B являются множествами, то A `Or` B тоже является множеством.
 
@@ -148,15 +162,45 @@
 
 \func or-isSet {A B : \Type} (p : isSet A) (q : isSet B) : isSet (Or A B) =>
   \lam x y => \case \elim x, \elim y \with {
-    | inl a, inl b => \lam u v => {?}
-    | inl a, inr b => {?}
-    | inr b, inl a => {?}
-    | inr b, inr b1 => {?}
+    | inl a, inl b => retract-isProp {inl a = inl b} {a = b} (p a b) de-pmap-inl (pmap inl) pmap-depmap-inl-id
+    | inl a, inr b => \lam u v => \case u \with {}
+    | inr b, inl a => \lam u v => \case u \with {}
+    | inr a, inr b => \lam u v => \let uu => (de-pmap-inr u) | vv => (de-pmap-inr v) \in q a b uu vv
+  }
+{-\func or-isSet {A B : \Type} (p : isSet A) (q : isSet B) : isSet (Or A B) =>
+  \lam x y => \case \elim x, \elim y \with {
+    | inl a, inl b => \lam u v => \let uu => (de-pmap-inl u) | vv => (de-pmap-inl v) \in retract-isProp {u = v}
+    | inl a, inr b => \lam u v => \case u \with {}
+    | inr b, inl a => \lam u v => \case u \with {}
+    | inr a, inr b => \lam u v => \let uu => (de-pmap-inr u) | vv => (de-pmap-inr v) \in q a b uu vv
+  }-}
+  \where {
+    \func de-inl {A B : \Type} (a : Or A B) (default : A) : A \elim a
+      | inl a => a
+      | inr b => default
+
+    \func de-pmap-inl {A B : \Type} {a b : A} (p : inl {A} {B} a = inl {A} {B} b) : a = b
+      => coe (\lam i => a = de-inl (p @ i) a) idp right
+      -- почти то, что надо, но паттернматчиться на I нельзя
+{-    => path (\lam i => \case i \as ii : I, p @ i \as pi, idp : p @ ii = pi  \with {
+      | left, inl a, p1 => a
+      | right, inl a, p1 => a
+    })-}
+
+    \func pmap-depmap-inl-id {A B : \Type} {a b : A} (p : inl {A} {B} a = inl {A} {B} b) : pmap (inl {A} {B}) (de-pmap-inl (p)) = p
+      => {?}
+
+    \func de-pmap-inr {A B : \Type} {a b : B} (p : inr {A} {B} a = inr {A} {B} b) : a = b
+      => path (\lam i => \case p @ i \with {
+        | inl _ => b
+        | inr t => t
+      })
   }
 
 -- 10. Если B x является множеством, то \Pi (x : A) -> B x тоже является множеством.
 
-\func pi-isSet {A : \Type} (B : A -> \Type) (p : \Pi (x : A) -> isSet (B x)) : isSet (\Pi (x : A) -> B x) => {?}
+\func pi-isSet {A : \Type} (B : A -> \Type) (p : \Pi (x : A) -> isSet (B x)) : isSet (\Pi (x : A) -> B x)
+  => \lam x y => {?}
 
 -- 11. Докажите, что если A является множеством, то List A также им является.
 
