@@ -2,9 +2,12 @@
 \import Arith.Nat (pred)
 \import Logic.Meta
 \import Meta
+\import Order.LinearOrder
+\import Order.StrictOrder
 \import Paths (inv)
+\import Paths.Meta
 \import hw11 ()
-\import lect09 (Decide, no, yes)
+\import lect09 (Decide, Eq, decideEq, no, yes)
 \import lect11
 \import Utils \hiding (<=-refl)
 
@@ -87,11 +90,22 @@
   | refl (x = y)
   | inc (R x y)
 
+
 \func Nat-isSet : isSet Nat
-  => \lam x y => retract-isProp {x = y} Unit-isProp
-      (\lam p => ()) (\lam t => {?}) (\lam p => \case \elim y, \elim p \with {
-        | y, idp => idp
-      })
+  => Dec-isSet decideEq
+      \where {
+        -- инстанс Eq Nat не хочет работать по какой-то причине, так надёжнее :)
+        \func decideEq (x y : Nat) : Decide (x = y) \with {
+         | 0, 0 => yes idp
+         | 0, suc y => no (\case __ \with {})
+         | suc x, 0 => no (\case __ \with {})
+         | suc x, suc y => \case decideEq x y \with {
+           | yes x=y => yes (pmap suc x=y)
+           | no x/=y => no (\lam e => x/=y (pmap pred e))
+        }
+        }
+      }
+
 \func ReflClosure_<-isProp (n m : Nat) : isProp (ReflClosure (\lam x y => T (x < y)) n m) => \lam x y => ReflClosure_<-isProp-refl n m x y
   \where {
     \func ReflClosure_<-isProp-refl (n m : Nat) (x y : ReflClosure (\lam x y => T (x < y)) n m) : x = y
@@ -113,10 +127,7 @@
                                | n-leq-m-false => transport (\lam k => n < k = false) eq (<-refl-is-false n)
                             \in contradiction
       }
-      | suc n, suc m, inc r, inc s => \let
-        x =>  (\case n < m \as leq, r \as ru : T(leq), s \as su : T(leq) \return ru = su \with {
-        | true, ru, su => Unit-isProp ru su
-      }) \in pmap inc x
+      | suc n, suc m, inc r, inc s => pmap inc T-lem
 
     \func eq-pred-lemma {m n : Nat} (p : suc m = suc n) : m = n \elim m, n, p
       | 0, 0, p => idp
@@ -137,22 +148,57 @@
 
 -- 8. Докажите, что тип с разрешимым равенством являетя множеством.
 
-\func Either-Unit-Empty-isProp : isProp (Either (\Sigma) (Empty))
+-- зачем-то доказал, жалко выкидывать:
+\func Dec-isProp {X : \Type} (p : isProp(X)) : isProp (Decide X)
   => \lam x y => \case \elim x, \elim y \with {
-    | Either.inl a, Either.inl b => pmap Either.inl (Unit-isProp a b)
-    | Either.inl a, Either.inr b => \case b \with {}
-    | Either.inr b, Either.inl a => \case b \with {}
-    | Either.inr a, Either.inr b => \case b \with {}
+    | yes a, yes b => pmap yes (p a b)
+    | yes a, no n => \case n a \with {}
+    | no n, yes a => \case n a \with {}
+    | no n, no n' => pmap no (funExt (\lam _ => Empty) n n' (\lam t => \case n t \with {}))
   }
 
 \func Dec-isSet {A : \Type} (dec : \Pi (x y : A) -> Decide (x = y)) : isSet A
-  =>  \lam x y => retract-isProp {x = y} Unit-isProp
-      (\lam t => ()) (\lam t => \case dec x y \with {
+  =>  \lam x y => \case dec x y \with {
+--    | yes yo => retract'-isProp {x = y} {Decide (\Sigma)} (Dec-isProp Unit-isProp)
+--         (\lam _ => const' dec yo) (\lam w => (yes (), aux dec w))
+    | yes yo => \lam p q => \let | x => lemma1 dec p
+                                 | y => lemma1 dec q
+                                 | z => pmap (__ *> (sym (unify dec idp))) (lemma2 dec p q)
+                            \in sym x *> z *> y
+    | no n => \lam p q => \case n p \with {}
+  }
+  \where {
+    \func unify {A : \Type} {x y : A} (dec : \Pi (x y : A) -> Decide (x = y)) (p : x = y) : x = y
+      => \case dec x y \with {
         | yes a => a
-        | no n => {?}
-      }) (\lam p => \case \elim y, \elim p \with {
-        | y, idp => idp
-      })
+        | no n => \case n p \with {}
+      }
+
+    \func lemma1 {A : \Type} {x y : A} (dec : \Pi (x y : A) -> Decide (x = y)) (p : x = y)
+      : unify dec p *> sym (unify dec idp) = p
+      -- при превращении p -> idp с помощью самого же p : x = y,
+      -- мы получим unify dec idp *> sym (unify dec idp) = idp, что верно
+    \elim x, y, p
+      | x, y, idp => sym-right (unify dec idp)
+
+    \func lemma2 {A : \Type} {x y : A} (dec : \Pi (x y : A) -> Decide (x = y)) (p : x = y) (q : x = y)
+      : unify dec p = unify dec q
+    => unfold (unify) (\case dec x y \as dxy
+                             \return
+    (\case dxy \with {
+      | yes a => a
+      | no n => \case n p \with {}
+    }) = (\case dxy \with {
+      | yes a => a
+      | no n => \case n q \with {}
+    })
+    \with {
+      | yes a => idp
+      | no n => idp
+    })
+
+  }
+
 
 -- 9. Если A и B являются множествами, то A `Or` B тоже является множеством.
 
@@ -165,36 +211,32 @@
     | inl a, inl b => retract-isProp {inl a = inl b} {a = b} (p a b) de-pmap-inl (pmap inl) pmap-depmap-inl-id
     | inl a, inr b => \lam u v => \case u \with {}
     | inr b, inl a => \lam u v => \case u \with {}
-    | inr a, inr b => \lam u v => \let uu => (de-pmap-inr u) | vv => (de-pmap-inr v) \in q a b uu vv
+    | inr a, inr b => retract'-isProp {inr a = inr b} {a = b} (q a b) (pmap inr) (\lam x => (de-pmap-inr x, pmap-depmap-inr-id _))
   }
-{-\func or-isSet {A B : \Type} (p : isSet A) (q : isSet B) : isSet (Or A B) =>
-  \lam x y => \case \elim x, \elim y \with {
-    | inl a, inl b => \lam u v => \let uu => (de-pmap-inl u) | vv => (de-pmap-inl v) \in retract-isProp {u = v}
-    | inl a, inr b => \lam u v => \case u \with {}
-    | inr b, inl a => \lam u v => \case u \with {}
-    | inr a, inr b => \lam u v => \let uu => (de-pmap-inr u) | vv => (de-pmap-inr v) \in q a b uu vv
-  }-}
   \where {
-    \func de-inl {A B : \Type} (a : Or A B) (default : A) : A \elim a
+    \func de-inl {A B : \Type} (default : A) (or : Or A B) : A \elim or
       | inl a => a
-      | inr b => default
+      | inr _ => default
+
+    \func de-inr {A B : \Type}(default : B) (or : Or A B)  : B \elim or
+      | inl _ => default
+      | inr b => b
 
     \func de-pmap-inl {A B : \Type} {a b : A} (p : inl {A} {B} a = inl {A} {B} b) : a = b
-      => coe (\lam i => a = de-inl (p @ i) a) idp right
-      -- почти то, что надо, но паттернматчиться на I нельзя
-{-    => path (\lam i => \case i \as ii : I, p @ i \as pi, idp : p @ ii = pi  \with {
-      | left, inl a, p1 => a
-      | right, inl a, p1 => a
-    })-}
-
-    \func pmap-depmap-inl-id {A B : \Type} {a b : A} (p : inl {A} {B} a = inl {A} {B} b) : pmap (inl {A} {B}) (de-pmap-inl (p)) = p
-      => {?}
+      => pmap (de-inl a) p
 
     \func de-pmap-inr {A B : \Type} {a b : B} (p : inr {A} {B} a = inr {A} {B} b) : a = b
-      => path (\lam i => \case p @ i \with {
-        | inl _ => b
-        | inr t => t
-      })
+      => pmap (de-inr b) p
+
+    \func pmap-depmap-inl-id {A B : \Type} {a b : A} (p : inl {A} {B} a = inl {A} {B} b) : pmap (inl {A} {B}) (de-pmap-inl p) = p
+      => unfold (de-pmap-inl, pmap) (
+        \let | eq => (path (\lam t x => (coe (\lam i => inl (de-inl a (p @ i)) = p @ i) idp x) @ t))
+        \in rewrite eq idp)
+
+    \func pmap-depmap-inr-id {A B : \Type} {a b : B} (p : inr {A} {B} a = inr {A} {B} b) : pmap (inr {A} {B}) (de-pmap-inr p) = p
+      => unfold (de-pmap-inr, pmap) (
+        \let | eq => (path (\lam t x => (coe (\lam i => inr (de-inr b (p @ i)) = p @ i) idp x) @ t))
+        \in rewrite eq idp)
   }
 
 -- 10. Если B x является множеством, то \Pi (x : A) -> B x тоже является множеством.
