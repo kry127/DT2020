@@ -242,12 +242,54 @@
 -- 10. Если B x является множеством, то \Pi (x : A) -> B x тоже является множеством.
 
 \func pi-isSet {A : \Type} (B : A -> \Type) (p : \Pi (x : A) -> isSet (B x)) : isSet (\Pi (x : A) -> B x)
-  => \lam x y => {?}
+  => \lam f g s1 s2 => \let
+                         | step1 => \lam (x : A) => (p x) (f x) (g x)
+                         | step2 => forall-isProp (\lam i => f i = g i) step1
+                         | step3 => retract'-isProp {f = g} step2 (funExt B f g)
+                                    (\lam pp => (
+                                      \lam tt => pmap (\lam ff => ff tt) pp, idp
+                                    ))
+                       \in step3 s1 s2
 
 -- 11. Докажите, что если A является множеством, то List A также им является.
 
 \func List-isSet {A : \Type} (pA : isSet A) : isSet (List A)
-  => {?}
+  => List-isSet-rec pA
+  \where {
+    \func List-isSet-rec {A : \Type} (pA : isSet A) (l1 : List A) (l2 : List A) : isProp (l1 = l2)
+     \elim l1, l2
+--     | nil, nil => (retract-isProp {nil = nil} (Unit-isProp) (\lam _ => ()) (\lam _ => idp) (\lam t => {?}))
+    | nil, nil => {?}
+    | nil, cons a l => (retract-isProp {nil = cons a l} (Empty-isProp) (\lam pp => \case pp \with {}) (\lam l => \case l \with {})
+    (\lam t => \case t \with {}))
+    | cons a l, nil => (retract-isProp {cons a l = nil} (Empty-isProp) (\lam pp => \case pp \with {}) (\lam l => \case l \with {})
+    (\lam t => \case t \with {}))
+    | cons a l, cons a' l' =>
+      \let
+        | step1 => List-isSet-rec pA l l'
+        | step2 => pA a a'
+        | step3 => Sigma-isProp step2 step1
+        | step4 => retract'-isProp {cons a l = cons a' l'} step3 (\lam t => path (\lam i => cons (t.1 @ i) (t.2 @ i)))
+                   (\lam t => (list-to-pair t,
+                               \let
+                                    | stepx => path (\lam b x => (coe (\lam i => (cons ((list-to-pair t).1 @ i) ((list-to-pair t).2 @ i)) = t @ i) idp x) @ b)
+                               \in rewrite stepx idp))
+      \in step4
+
+
+    \func list-to-pair {A : \Type} {a a' : A} {l l' : List A} (p : cons a l = cons a' l') : \Sigma (a = a')(l = l')
+      | {A}, {a}, {a'}, {nil}, {nil}, p => (path (\case (p @ __) \with {
+        | nil => a
+        | cons anew l => anew
+      }), idp)
+      | {A}, {a}, {a'}, {cons a1 l}, {cons a2 l'}, p => (path (\case (p @ __) \with {
+        | nil => a
+        | cons anew l => anew
+      }), path (\case (p @ __) \with {
+        | nil => nil
+        | cons anew l => l
+      }))
+  }
 
 -- Optional:
 -- 12. Докажите, что n-типы замкнуты относительно образования \Pi-типов.
