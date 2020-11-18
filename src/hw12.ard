@@ -1,23 +1,50 @@
+\import Equiv ()
 \import lect12
 \import Utils \hiding (transport,Or,inl,inr)
 
 -- 1. Докажите, что если A : \Prop, то Trunc A эквивалентен A.
 
-\func trunc-prop {A : \Prop} : Trunc A <-> A => {?}
+\func trunc-prop {A : \Prop} : Trunc A <-> A => (trunc-prop-1, trunc-prop-2)
+  \where {
+    \func trunc-prop-1 {A : \Prop}(tr : Trunc A) : A \elim tr
+      | trunc a => a
+
+    \func trunc-prop-2 {A : \Prop} (a : A) : Trunc A => trunc a
+  }
 
 -- 2. Докажите следующий закон де Моргана.
 
-\func deMorgan (A B C : \Prop) : (\Sigma A (B `Or` C)) <-> ((\Sigma A B) `Or` (\Sigma A C)) => {?}
+\func deMorgan (A B C : \Prop) : (\Sigma A (B `Or` C)) <-> ((\Sigma A B) `Or` (\Sigma A C))
+  => (deMorgan-2 A B C, deMorgan-1 A B C)
+  \where {
+    \func deMorgan-2 (A B C : \Prop) (prop : (\Sigma A (B `Or` C))) : ((\Sigma A B) `Or` (\Sigma A C))
+      \elim prop
+        | (a,o) => \case \elim o \with {
+          | inl b => inl (a,b)
+          | inr c => inr (a,c)
+        }
+
+    \func deMorgan-1 (A B C : \Prop) (prop : ((\Sigma A B) `Or` (\Sigma A C))) : (\Sigma A (B `Or` C))
+      \elim prop
+        | inl ab => (ab.1, inl (ab.2))
+        | inr ac => (ac.1, inr (ac.2))
+  }
 
 -- 3. Определите элиминатор для Or через Or-rec, не используя паттерн матчинг на Or.
 
 \func Or-elim {A B : \Prop} (C : Or A B -> \Prop)
               (f : \Pi (x : A) -> C (inl x)) (g : \Pi (y : B) -> C (inr y))
-              (p : A `Or` B) : C p => {?}
+              (p : A `Or` B) : C p => \let | f' => df-to-ndf {A} {C} f
+                                           | g' => df-to-ndf {B} {C} g
+                                      \in {?}
+  \where {
+    \func df-to-ndf {A : \Prop} {B : A -> \Prop} (df : \Pi(a : A) -> (B a)) : A -> \Sigma (a : A)(B a)
+       => \lam a => (a, df a)
+  }
 
 -- 4. Докажите, что тип утверждений является множеством.
 
-\func prop-isSet : isSet \Prop => {?}
+\func prop-isSet : isSet \Prop => \lam x y => {?}
 
 -- 5. Докажите, что функции Prop1-to-Prop2 и Prop2-to-Prop1 взаимно обратны и, как следствие, что Prop1 = Prop2.
 

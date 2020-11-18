@@ -219,6 +219,7 @@
                                     (g : B -> A)
                                     (\Pi (x : A) -> g (f x) = x)
                                     (\Pi (y : B) -> f (g y) = y)
+-- setEquals!
 
 -- p : A = B
 -- transport (\lam X => X) p : A -> B
