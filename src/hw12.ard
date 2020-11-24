@@ -1,4 +1,9 @@
-\import Equiv ()
+\import Algebra.Meta
+\import Equiv (Section)
+\import Equiv.Univalence
+\import Meta
+\import Paths (idpe)
+\import Paths.Meta
 \import lect12
 \import Utils \hiding (transport,Or,inl,inr)
 
@@ -34,19 +39,23 @@
 
 \func Or-elim {A B : \Prop} (C : Or A B -> \Prop)
               (f : \Pi (x : A) -> C (inl x)) (g : \Pi (y : B) -> C (inr y))
-              (p : A `Or` B) : C p => \let | f' => df-to-ndf {A} {C} f
-                                           | g' => df-to-ndf {B} {C} g
-                                      \in {?}
-  \where {
-    \func df-to-ndf {A : \Prop} {B : A -> \Prop} (df : \Pi(a : A) -> (B a)) : A -> \Sigma (a : A)(B a)
-       => \lam a => (a, df a)
-  }
+              (p : A `Or` B) : C p => \let lemma => Or-rec {A} {B} {\Sigma (q : A `Or` B) (C q)}
+                                                                    (\lam a => (inl a, f a))
+                                                                    (\lam b => (inr b, g b)) p
+                                      \in rewrite (Path.inProp p lemma.1) lemma.2
 
 -- 4. Докажите, что тип утверждений является множеством.
 
-\func prop-isSet : isSet \Prop => \lam x y => {?}
+\func prop-isSet : isSet \Prop => \lam x y => Path.inProp {x = y}
 
 -- 5. Докажите, что функции Prop1-to-Prop2 и Prop2-to-Prop1 взаимно обратны и, как следствие, что Prop1 = Prop2.
+\func p2->p1---->p1->p2 (X : \Prop) : (Prop2-to-Prop1 (Prop1-to-Prop2 X)) = X
+  => unfold (Prop1-to-Prop2, Prop2-to-Prop1) {?}
+
+\func p1->p2---->p2->p1 (X : Prop2) : (Prop1-to-Prop2 (Prop2-to-Prop1 X)) = X
+  => unfold (Prop1-to-Prop2, Prop2-to-Prop1) {?}
+
+\func Prop1-eq-Prop2 : Prop1 = Prop2 => equivalence=>equality Prop1 Prop2 (Prop1-to-Prop2, Prop2-to-Prop1, p2->p1---->p1->p2, p1->p2---->p2->p1)
 
 -- Можно сделать только одно из упражнений 6a,6b на выбор.
 -- 6a. Тип С называется когенератором, если для любых множеств A и B и любых функция f,g : A -> B верно, что если h `o` f = h `o` g для всех h : B -> C, то f = g.
@@ -56,7 +65,7 @@
 
 \func isCogenerator (C : \Type) => \Pi {A B : \Set} (f g : A -> B) (p : \Pi (h : B -> C) -> h `o` f = h `o` g) -> f = g
 
-\func PropIsCogenerator : isCogenerator \Prop => {?}
+\func PropIsCogenerator : isCogenerator \Prop => \lam f g lp => {?}
 
 -- 6b. Тип X называется инъективным, если для любой функции f : A -> X и любой инъекции i : A -> B сущесвует функция l : B -> X такая, что l `o` i = f.
 --     Докажите, что \Prop инъективен.
@@ -65,11 +74,19 @@
 
 \func isInjective (X : \Type) => \Pi {A B : \Type} (f : A -> X) (i : A -> B) (p : isInj i) -> \Sigma (l : B -> X) (l `o` i = f)
 
-\func Prop-isInjective : isInjective \Prop => {?}
+\func Prop-isInjective : isInjective \Prop => \lam a-prop a-b injb => (\lam b => {?}, {?})
 
 -- Можно сделать только одно из упражнений 7a,7b на выбор.
 -- 7a. Докажите, что (Bool = Bool) = Bool.
 
-\func BoolAut : (Bool = Bool) = Bool => {?}
+\func BoolAut : (Bool = Bool) = Bool => equivalence=>equality (Bool = Bool) Bool
+    (\lam eq => (equality=>equivalence Bool Bool eq).1 true, -- превращаем равенство в отображение lhs -> rhs и подставляем true
+     \lam b => \case b \with {
+      | true => equivalence=>equality Bool Bool (\lam x => x, \lam x => x, idpe, idpe) -- автоморфизм Bool -> Bool №1
+      | false => equivalence=>equality Bool Bool (not, not, not-not, not-not)          -- автоморфизм Bool -> Bool №2, других автоморфизмов нет
+    }, \lam q => {?}, \lam b => \case \elim b \with {
+      | true => {?} -- должно быть верно, но не знаю, как показать
+      | false => unfold (equality=>equivalence) {?} -- аналогично тут
+    })
 
 -- 7b. Докажите, что (n+m)-элементное множество равно размеченному объединению n- и m-элементных множеств.
