@@ -1,15 +1,40 @@
+\import Paths.Meta
 \import Utils
 \import lect13
 
 -- 1. Определите функцию negPred : Int -> Int такую, что negPred x = x, если x > 0, и negPred x = x - 1, если x <= 0.
 
-\func negPred (x : Int) : Int => {?}
+\func negPred (x : Int) : Int
+  | pos c => pos c
+  | neg (suc c) => neg c
 
 -- 2. Определите функции сложения и умножения для Int.
 
-\func \infixl 6 + (x y : Int) : Int => {?}
+\func \infixl 6 + (x y : Int) : Int
+  | pos n, pos m => pos (n Nat.+ m)
+  | neg (suc n), neg (suc m) => neg ((suc n) Nat.+ (suc m))
+  | pos (suc n), neg (suc m) => (pos n) + (neg m)
+  | neg (suc n), pos (suc m) => (neg n) + (pos m)
+  | pos 0, neg n => neg n
+  | neg (suc n), pos 0 => neg (suc n)
 
-\func \infixl 7 * (x y : Int) : Int => {?}
+\func plusTest1 : + (pos 20) (neg 5) = pos 15 => idp
+\func plusTest2 : + (pos 20) (neg 25) = neg 5 => idp
+\func plusTest3 : + (pos 67) (neg 67) = pos 0 => idp
+\func plusTest4 : + (pos 67) (neg 67) = neg 0 => idp
+\func plusTest5 : + (neg 0) (pos 0) = neg 0 => idp
+
+\func \infixl 7 * (x y : Int) : Int
+  | pos n, pos m => pos (n Nat.* m)
+  | pos n, neg (suc m) => neg (n Nat.* (suc m))
+  | neg (suc n), pos m => neg ((suc n) Nat.* m)
+  | neg (suc n), neg (suc m) => pos ((suc n) Nat.* (suc m))
+
+\func multTest1 : * (pos 37) (pos 3) = pos 111 => idp
+\func multTest2 : * (pos 37) (neg 1) = neg 37 => idp
+\func multTest3 : * (neg 37) (neg 1) = pos 37 => idp
+\func multTest4 : * (neg 0) (neg 1) = pos 0 => idp
+\func multTest5 : * (neg 2) (neg 2) = pos 4 => idp
 
 -- 3. Определите тип данных BinNat для бинарных натуральных чисел.
 --    У него должно быть три конструктора: для 0, для чисел вида 2*n и чисел вида 2*n+1.
@@ -17,6 +42,11 @@
 --    Используйте типы данных с условиями, чтобы вычислительно отождествить различные нули.
 
 \data BinNat
+  | Z
+  | O (n : BinNat) \elim n {
+    Z => Z
+  }
+  | I (n : BinNat)
 
 -- 4. Докажите, что функция pred сюръективна.
 
@@ -24,11 +54,13 @@
   | 0 => 0
   | suc n => n
 
-\func pred-is-sur : isSur pred => {?}
+\func pred-is-sur : isSur pred => \lam b => in (suc b, idp)
 
 -- 5. Докажите, что функция suc не сюръективна.
 
-\func suc-is-not-sur (p : isSur suc) : Empty => {?}
+\func suc-is-not-sur (p : isSur suc) : Empty => \case p 0 \with {
+  | in a => \case a.2 \with {}
+}
 
 -- 6. Пусть f : A -> B и g : B -> C ─ некоторые функции.
 --    Докажите, что если f и g сюръективны, то g `o` f также сюръективна.
@@ -36,9 +68,19 @@
 
 \func \fixr 9 o {A B C : \Type} (g : B -> C) (f : A -> B) => \lam a => g (f a)
 
-\func o-sur {A B C : \Type} (f : A -> B) (g : B -> C) (p : isSur f) (q : isSur g) : isSur (g `o` f) => {?}
+\func o-sur {A B C : \Type} (f : A -> B) (g : B -> C) (p : isSur f) (q : isSur g) : isSur (g `o` f)
+  => \lam c => \case q c \with {
+    | in (b, gb=c) => \case p b \with {
+      | in (a, fa=b) => in (a, pmap g fa=b *> gb=c)
+    }
+  }
 
-\func o-sur' {A B C : \Type} (f : A -> B) (g : B -> C) (p : isSur (g `o` f)) : isSur g => {?}
+\func o-sur' {A B C : \Type} (f : A -> B) (g : B -> C) (p : isSur (g `o` f)) : isSur g
+  => \lam c => \case p c \with {
+    | in (a, gfa=c) => \case f a \as b, idp : f a = b \with {
+      | b, fa=b => in (b, rewriteI fa=b gfa=c)
+    }
+  }
 
 -- 7. Определите множество конечных подмножеств множества A, то есть списков элементов A с точностью до перестановок и повторений элементов.
 
@@ -56,10 +98,10 @@
 -- "существует инъекция из A в Subs A" и "не существует сюръекции из A в Subs A".
 
 \func cantor1 (A : \Set) : \Sigma (f : A -> Subs A) (isInj f)
-  => {?}
+  => (\lam a a' => a = a', \lam x y eqx=eqy => \let t => pmap (\lam f => f y) eqx=eqy \in rewrite t idp)
 
 \func cantor2 (A : \Set) (f : A -> Subs A) (p : isSur f) : Empty
-  => {?}
+  => \let x => f {?} \in {?}
 
 -- Optional
 -- 9. Постройте функции Nat -> BinNat и BinNat -> Nat и докажите, что они взаимно обратны.
