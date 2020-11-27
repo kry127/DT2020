@@ -1,5 +1,13 @@
+\import Logic.Meta
+\import Meta
 \import Paths.Meta
 \import Utils
+\import hw05 (In, contrProp)
+\import hw08
+\import hw09
+\import lect06
+\import lect09 (no, yes)
+\import lect12 (equality=>equivalence)
 \import lect13
 
 -- 1. Определите функцию negPred : Int -> Int такую, что negPred x = x, если x > 0, и negPred x = x - 1, если x <= 0.
@@ -46,7 +54,7 @@
   | O (n : BinNat) \elim n {
     Z => Z
   }
-  | I (n : BinNat)
+  | Ib (n : BinNat)
 
 -- 4. Докажите, что функция pred сюръективна.
 
@@ -84,7 +92,12 @@
 
 -- 7. Определите множество конечных подмножеств множества A, то есть списков элементов A с точностью до перестановок и повторений элементов.
 
-\data Set (A : \Set) : \Set
+\truncated \data Set (A : \Set) : \Set
+  | set (List A)
+  | eq (a a' : List A) (r : \Pi (x : A) -> (In x a <-> In x a')) (i : I) \elim i {
+    | left => set a
+    | right => set a'
+  }
 
 -- 8. Докажите теорему Кантора.
 
@@ -100,16 +113,64 @@
 \func cantor1 (A : \Set) : \Sigma (f : A -> Subs A) (isInj f)
   => (\lam a a' => a = a', \lam x y eqx=eqy => \let t => pmap (\lam f => f y) eqx=eqy \in rewrite t idp)
 
-\func cantor2 (A : \Set) (f : A -> Subs A) (p : isSur f) : Empty
-  => \let x => f {?} \in {?}
+\sfunc cantor2 (A : \Set) (f : A -> Subs A) (p : isSur f) : Empty
+  => \let | B => p (\lam (x : A) => (f x) x -> Empty)
+     \in \case B \with {
+      | in (y, stmt) => \let | contra => pmap (\lam f => f y) stmt
+                             | (ff, gg, _, _) => equality=>equivalence (f y y) (f y y -> Empty) contra
+                        \in contrProp ff gg
+    }
 
 -- Optional
 -- 9. Постройте функции Nat -> BinNat и BinNat -> Nat и докажите, что они взаимно обратны.
 
-\func NatToBinNat (n : Nat) : BinNat => {?}
+\func BinNat-succ (n : BinNat) : BinNat
+  | Z => Ib Z
+  | O n => Ib n
+  | Ib n => O (BinNat-succ n)
+    \where {
+      \func BinNat-succ-= {n : Nat} {bn : BinNat} (p : (BinNatToNat bn) = n) : (BinNatToNat (BinNat-succ bn)) = suc n
+        | {0}, {Z}, p => pmap suc p
+        | {0}, {O n}, p => pmap suc p
+        | {suc n}, {Z}, p => pmap suc p
+        | {suc n}, {O n1}, p => pmap suc p
+        | {suc n}, {Ib n1}, p => BinNat-succ-=' (pmap pred p)
 
-\func BinNatToNat (b : BinNat) : Nat => {?}
+      \func BinNat-succ-=' {k n : Nat} {bn : BinNat} (p : k Nat.* (BinNatToNat bn) = n) :  k Nat.* (BinNatToNat (BinNat-succ bn))  = n Nat.+ k
+        | {0}, {0}, {Z}, p => p
+        | {0}, {0}, {O n}, p => p
+        | {0}, {0}, {Ib n}, p => *comm 0 (2 Nat.* (BinNatToNat (BinNat-succ n)))
+        | {0}, {suc n}, {Z}, p => p
+        | {0}, {suc n}, {O n1}, p => p
+        | {0}, {suc n}, {Ib n1}, p => \let qq => *comm (2 Nat.* (BinNatToNat n1)) 0 \in \case  qq *> p \with {}
+        | {suc k}, {0}, {Z}, p => pmap (\lam x => suc (x Nat.+ k)) p
+        | {suc k}, {0}, {O n}, p => pmap (\lam x => suc (x Nat.+ k)) p
+        | {suc k}, {suc n}, {Z}, p => pmap (\lam x => suc (x Nat.+ k)) p
+        | {suc k}, {suc n}, {O n1}, p => pmap (\lam x => suc (x Nat.+ k)) p
+        | {suc k}, {suc n}, {Ib n1}, p => {?}
+    }
+{-
+\func BinNat-pred (n : BinNat) : BinNat
+  | Z => Z
+  | O n => Ib (BinNat-pred n)
+  | Ib n => n
 
-\func nbn (n : Nat) : BinNatToNat (NatToBinNat n) = n => {?}
+ -}
 
-\func bnb (b : BinNat) : NatToBinNat (BinNatToNat b) = b => {?}
+\func NatToBinNat (n : Nat) : BinNat
+  | 0 => Z
+  | suc n => BinNat-succ (NatToBinNat n)
+
+\func BinNatToNat (b : BinNat) : Nat
+  | Z => 0
+  | O(x) => 2 Nat.* (BinNatToNat x)
+  | Ib(x) => suc (2 Nat.* (BinNatToNat x))
+
+\func nbn (n : Nat) : BinNatToNat (NatToBinNat n) = n
+  | 0 => idp
+  | suc n => BinNat-succ.BinNat-succ-= (nbn n)
+
+\func bnb (b : BinNat) : NatToBinNat (BinNatToNat b) = b
+  | Z => idp
+  | O n => {?}
+  | Ib n => {?}
