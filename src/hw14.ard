@@ -1,5 +1,7 @@
+\import Paths (funExt, idpe)
 \import Paths.Meta
 \import Utils
+\import lect12 (equivalence=>equality)
 \import lect13
 \import lect14
 
@@ -12,15 +14,31 @@
   }, addTail e x (add x s)))
 
 \func add-swap {S : SetSpec} (x y : S.A) (s : S) : add x (add y s) = add y (add x s)
-  => setExt _ _ (\lam e => ({?}, {?}))
+  => setExt _ _ (\lam e => (add-swap-arr x y e _, add-swap-arr y x e _))
   \where {
-    \func add-swap-arr {S : SetSpec} (x y e : S.A) (s : S) (p : isElem e (add x (add y s))) : isElem e (add y (add x s)) => {?}
+    \func add-swap-arr {S : SetSpec} (x y e : S.A) (s : S) (p : isElem e (add x (add y s))) : isElem e (add y (add x s))
+      => \case addProp e x _ p \with {
+        | byLeft a => rewrite a (addTail _ _ _ (addHead _ s))
+        | byRight q => \case addProp e y _ q \with {
+          | byLeft a => rewrite a (addHead _ _)
+          | byRight b => addTail _ _ _ (addTail _ _ _ b)
+        }
+      }
   }
 
 -- 2. Докажите, что множество подмножеств является инстансом SetSpec
 
 \func subsets {A : \Set} : SetSpec {A} (A -> \Prop)
-  => {?}
+  => \new SetSpec {A} (A -> \Prop) {
+    | empty => \lam a => Not (a = a)
+    | add => \lam e s => \lam e' => (e' = e) `Or` (s e')
+    | isElem => \lam a s => s a
+    | setExt => \lam p1 p2 h => funExt (\lam _ => \Prop) p1 p2 (\lam x => (equivalence=>equality (p1 x) (p2 x) ((h x).1, (h x).2, \lam t => Paths.pathInProp _ _ _, \lam t => Paths.pathInProp _ _ _)))
+    | emptySpec => \lam e => (__ idp)
+    | addHead => \lam x _ => byLeft idp
+    | addTail => \lam _ _ _ p => byRight p
+    | addProp => \lam _ _ _ x => x
+  }
 
 -- 3. Докажите, что множество подмножеств является наибольшим инстансом, то есть любой другой вкладывается в него.
 
