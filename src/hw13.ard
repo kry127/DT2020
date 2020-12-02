@@ -129,33 +129,11 @@
   | O n => Ib n
   | Ib n => O (BinNat-succ n)
     \where {
-      \func BinNat-succ-= {n : Nat} {bn : BinNat} (p : (BinNatToNat bn) = n) : (BinNatToNat (BinNat-succ bn)) = suc n
-        | {0}, {Z}, p => pmap suc p
-        | {0}, {O n}, p => pmap suc p
-        | {suc n}, {Z}, p => pmap suc p
-        | {suc n}, {O n1}, p => pmap suc p
-        | {suc n}, {Ib n1}, p => BinNat-succ-=' (pmap pred p)
-
-      \func BinNat-succ-=' {k n : Nat} {bn : BinNat} (p : k Nat.* (BinNatToNat bn) = n) :  k Nat.* (BinNatToNat (BinNat-succ bn))  = n Nat.+ k
-        | {0}, {0}, {Z}, p => p
-        | {0}, {0}, {O n}, p => p
-        | {0}, {0}, {Ib n}, p => *comm 0 (2 Nat.* (BinNatToNat (BinNat-succ n)))
-        | {0}, {suc n}, {Z}, p => p
-        | {0}, {suc n}, {O n1}, p => p
-        | {0}, {suc n}, {Ib n1}, p => \let qq => *comm (2 Nat.* (BinNatToNat n1)) 0 \in \case  qq *> p \with {}
-        | {suc k}, {0}, {Z}, p => pmap (\lam x => suc (x Nat.+ k)) p
-        | {suc k}, {0}, {O n}, p => pmap (\lam x => suc (x Nat.+ k)) p
-        | {suc k}, {suc n}, {Z}, p => pmap (\lam x => suc (x Nat.+ k)) p
-        | {suc k}, {suc n}, {O n1}, p => pmap (\lam x => suc (x Nat.+ k)) p
-        | {suc k}, {suc n}, {Ib n1}, p => {?}
+      \func BinNat-succ-= (bn : BinNat): (BinNatToNat (BinNat-succ bn)) = suc (BinNatToNat bn) \elim bn
+        | Z => idp
+        | O n => idp
+        | Ib n1 => \let x => BinNat-succ-= n1 \in pmap (2 Nat.* __) x
     }
-{-
-\func BinNat-pred (n : BinNat) : BinNat
-  | Z => Z
-  | O n => Ib (BinNat-pred n)
-  | Ib n => n
-
- -}
 
 \func NatToBinNat (n : Nat) : BinNat
   | 0 => Z
@@ -168,9 +146,14 @@
 
 \func nbn (n : Nat) : BinNatToNat (NatToBinNat n) = n
   | 0 => idp
-  | suc n => BinNat-succ.BinNat-succ-= (nbn n)
+  | suc n => rewrite (BinNat-succ.BinNat-succ-= (NatToBinNat n)) (pmap suc (nbn n))
 
 \func bnb (b : BinNat) : NatToBinNat (BinNatToNat b) = b
   | Z => idp
-  | O n => {?}
-  | Ib n => {?}
+  | O n  => \let x => bnb n | y => twice-lemma (BinNatToNat n) \in transport (NatToBinNat (2 Nat.* BinNatToNat n) = O (__)) x y
+  | Ib n => \let x => bnb n | y => twice-lemma (BinNatToNat n) \in pmap BinNat-succ (transport (NatToBinNat (2 Nat.* BinNatToNat n) = O (__)) x y)
+  \where {
+    \func twice-lemma (n : Nat) : NatToBinNat (2 Nat.* n) = O (NatToBinNat n) \elim n
+      | 0 => idp
+      | suc n => \let x => twice-lemma n \in rewrite x idp
+  }
