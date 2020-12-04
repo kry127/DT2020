@@ -5,12 +5,6 @@
 
 -- 1. Докажите, что reverse (reverse xs) = xs, где reverse определен через ++.
 
-\data List (A : \Type) | nil | cons A (List A)
-
-\func \infixl 4 ++ {A : \Type} (xs ys : List A) : List A \elim xs
-  | nil => ys
-  | cons x xs => cons x (xs ++ ys)
-
 \func reverse {A : \Type} (xs : List A) : List A
   | nil => nil
   | cons x xs => reverse xs ++ cons x nil

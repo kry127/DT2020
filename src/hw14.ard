@@ -1,7 +1,12 @@
-\import Paths (funExt, idpe)
+\import Meta
+\import Paths (funExt, idpe, inv, transportInv)
 \import Paths.Meta
+\import Set
 \import Utils
-\import lect12 (equivalence=>equality)
+\import hw04 (reverse, reverse++, reverse-isInvolutive)
+\import lect05 (filter)
+\import lect07
+\import lect12 (equality=>equivalence, equivalence=>equality)
 \import lect13
 \import lect14
 
@@ -43,17 +48,128 @@
 -- 3. Докажите, что множество подмножеств является наибольшим инстансом, то есть любой другой вкладывается в него.
 
 \func subsets-largest (S : SetSpec) : \Sigma (f : S -> (S.A -> \Prop)) (isInj f)
-  => {?}
+  => (\lam set elem => isElem elem set, \lam l1 l2 h => setExt l1 l2
+      (\lam e => \let quad => equality=>equivalence _ _ (path (\lam i => (h @ i) e)) \in (quad.1, quad.2))
+     )
 
 -- 4. Определите функцию isEmpty для произвольного конечного множества и для ListSet.
 
-\func isEmptySet {S : FinSetSpec} (x : S) : Bool => {?}
+-- способ один -- довольно сложный, нужно извлечь список из утверждения, и в зависимости от его непустоты вернуть true\false
+-- проблема -- превращение в prop кажется очень страшным
+\func isEmptySet' {S : FinSetSpec} (x : S) : Bool =>
+  \let finiteList => finite x
+  \in \case (Trunc.extract finiteList {?}).1 \with {
+    | nil => true
+    | cons _ _ => false
+  }
+  \where {
+      \func isEmptySet-toProp {S : FinSetSpec} (s : S) (p : Trunc (\Sigma (xs : List S.A) (\Pi (x : S.A) -> S.isElem x s <-> In x xs)))
+        : \Sigma (n : Nat) (Trunc (\Sigma (xs : List S.A) (\Pi (x : S.A) -> isElem x s <-> In x xs) (length xs = n)))
+                 (\Pi (m : Nat) -> (Trunc (\Sigma (xs : List S.A) (\Pi (x : S.A) -> isElem x s <-> In x xs) (length xs = m))) -> n <= m)
+        => {?}
+    }
+\func isEmptyListSet' {A : \Set} (x : ListSet A) : Bool => isEmptySet' x
 
-\func isEmptyListSet {A : \Set} (x : ListSet A) : Bool => {?}
+\func isEmptySet {S : FinSetSpec} (x : S) : Bool => isEmptyListSet {S.A} (rewrite listSet=Set x)
+
+-- однако, случаи фактор множества для списков можно разобрать относительно легко:
+\func isEmptyListSet {A : \Set} (x : ListSet A) : Bool \elim x
+  | inR nil => true
+  | inR (cons _ _) => false
+  | eq nil nil _ _ => true
+  | eq nil (cons a1 _) e i => (absurd (\case (e a1).2 (here idp) \with {}) : true = false) @ i
+  | eq (cons a1 _) nil e i => (absurd (\case (e a1).1 (here idp) \with {}) : false = true) @ i
+  | eq (cons _ _) (cons _ _) _ _ => false
 
 -- 5. Определите функцию union {A : \Set} : S A -> S A -> S A для произвольного S A (удовлетворяющего FinSetSpec) и для ListSet.
+\func union {S : FinSetSpec} (s1 s2 : S) : S => rewriteI listSet=Set (unionListSet (rewrite listSet=Set s1) (rewrite listSet=Set s2))
+
+\func unionListSet {A : \Set} (s1 s2 : ListSet A) : ListSet A \elim s1, s2
+  | inR a, inR a1 => inR (a ++ a1)
+  | inR a, eq al ar r i => eq (a ++ al) (a ++ ar) (lemma-EqList-left r) i
+  | eq al ar r i, inR a => eq (al ++ a) (ar ++ a) (lemma-EqList-right r) i
+  \where {
+    \func lemma-EqList-left {A : \Set} {xs l1 l2 : List A} (p : EqList l1 l2) : EqList (xs ++ l1) (xs ++ l2) \elim xs
+      | nil => p
+      | cons a xxs => \let tr-call => lemma-EqList-left {A} {xxs} p
+                      \in \lam x => (\case __ \with {
+                                        | here q => here q
+                                        | there i => there ((tr-call x).1 i)
+                                     }, \case __ \with {
+                                        | here q => here q
+                                        | there i => there ((tr-call x).2 i)
+                                     })
+
+
+    -- осталось ощущение, будто бы я что-то подоказывал дважды, поскольку вышло очень громоздкое док-во
+    \func lemma-EqList-right {A : \Set} {xs l1 l2 : List A} (p : EqList l1 l2) : EqList (l1 ++ xs) (l2 ++ xs)
+      => \let | x => (reverse++ l1 xs)
+              | y => (reverse++ l2 xs)
+              | z => lemma-EqList-left {A} {reverse xs} (lemma-EqList-reverse p)
+              | zz => transportInv (\lam t => EqList t _) x z
+              | zzz => transportInv (\lam t => EqList _ t) y zz
+              | q => lemma-EqList-reverse zzz
+              | qq => transport (\lam t => EqList t _) (reverse-isInvolutive (l1 ++ xs)) q
+              | qqq => transport (\lam t => EqList _ t) (reverse-isInvolutive (l2 ++ xs)) qq
+              \in qqq
+
+    \func lemma-EqList-reverse  {A : \Set} {l1 l2 : List A} (p : EqList l1 l2) : EqList (reverse l1) (reverse l2)
+      => \lam x => (\lam xinl1 =>
+                        \let | inxinv => (pmap (In x) (reverse-isInvolutive l1))
+                             | xinrevrevl1 => lemma-inReverse xinl1
+                             | xinl2 : In x l2 => ((p x).1) (rewriteI inxinv xinrevrevl1)
+                         \in lemma-inReverse xinl2 ,
+                    \lam xinl2 =>
+                        \let | inxinv => (pmap (In x) (reverse-isInvolutive l2))
+                             | xinrevrevl2 => lemma-inReverse xinl2
+                             | xinl1 : In x l1 => ((p x).2) (rewriteI inxinv xinrevrevl2)
+                        \in lemma-inReverse xinl1 )
+
+    \func lemma-inReverse {A : \Set} {xs : List A} {x : A} (p : In x xs) : In x (reverse xs) \elim xs
+      | nil => \case p \with {}
+      | cons a xxs => \case p \with {
+        | here q => lemma-in-left (here q)
+        | there i => lemma-in-right (lemma-inReverse {A} {xxs} i)
+      }
+      \where {
+        \func lemma-in-left {A : \Set} {xs l : List A} {x : A} (p : In x l) : In x (xs ++ l) \elim xs
+          | nil => p
+          | cons a xxs => \let tr-call => lemma-in-left {A} {xxs} p
+                          \in there tr-call
+        \func lemma-in-right {A : \Set} {xs l : List A} {x : A} (p : In x l) : In x (l ++ xs) \elim l
+          | nil => \case p \with {}
+          | cons a xxs => \let tr-call => lemma-in-left {A} {xxs} p
+                          \in \case p \with {
+                            | here q => here q
+                            | there i => there (lemma-in-right i)
+                          }
+      }
+  }
 
 -- 6. Определите функцию intersection {A : DecSet} : S A -> S A -> S A для произвольного S A (удовлетворяющего FinSetSpec) и для ListSet.
+\func intersection {A : DecSet} {S : FinSetSpec {A}} (s1 s2 : S) : S => rewriteI listSet=Set (intersectionListDecSet {A} (rewrite (listSet=Set {S}) s1) (rewrite (listSet=Set {S}) s2))
+
+\func intersectionListDecSet {A : DecSet} (s1 s2 : ListSet A) : ListSet A \elim s1, s2
+  | inR l1, inR l2 => inR (listIntersection l1 l2)
+  | inR a, eq al ar r i => eq (listIntersection a al) (listIntersection a ar) r i
+  | eq al ar r i, inR a => eq (listIntersection al a) (listIntersection ar a) r i
+  \where {
+    \func elementInList {A : DecSet} (x : A) (l : List A) : Bool \elim l
+      | nil => false
+      | cons a l => \case decideEq a x \with {
+        | yes _ => true
+        | no  _ => false
+      }
+    -- для таких определений может быть сложно доказать данный факт
+    \func listIntersection {A : DecSet} (l1 l2 : List A) : List A => (filter (\lam x => elementInList x l1) l2)
+
+    \func listIntersection-sym {A : DecSet} {l1 l2 : List A} : (listIntersection l2 l1 = listIntersection l1 l2) \elim l1
+      | nil => unfold (listIntersection) {?}
+      | cons a l1 => unfold (listIntersection) {?}
+
+    -- можно попробовать другой подход, только тут тип зависимых пар, а не список...:
+    \func listIntersection' {A : DecSet} (l1 l2 : List A) => \Sigma (x : A) (In x l1 <-> In x l2)
+  }
 
 -- 7. Мы не можем определить функция size в общем случае, но мы можем определить предикат S -> Nat -> \Prop, соответствующий \lam xs n => size xs <= n.
 --    Задайте этот предикат и докажите, что он эквивалентен обычному определению, если A -- разрешимо и S -- конечно.
