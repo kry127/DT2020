@@ -1,3 +1,4 @@
+\import Logic
 \open Nat
 
 -- Равенства
@@ -31,8 +32,6 @@
 -- Logic
 
 \func \infix 1 <-> (A B : \Type) => \Sigma (A -> B) (B -> A)
-
-\func Not (A : \Type) => A -> Empty
 
 \func suc/=0 {n : Nat} (p : suc n = 0) : Empty => transport (\lam n => \case n \with { | 0 => Empty | suc _ => \Sigma }) p ()
 
@@ -91,8 +90,6 @@
   | suc n, vcons x xs => vcons x (xs v++ ys)
 
 -- Empty
-
-\data Empty
 
 \func absurd {A : \Type} (e : Empty) : A
 

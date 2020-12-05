@@ -1,7 +1,9 @@
+\import Logic (Not)
 \import Meta
 \import Paths (funExt, idpe, inv, transportInv)
 \import Paths.Meta
 \import Set
+\import Set.Fin
 \import Utils
 \import hw04 (reverse, reverse++, reverse-isInvolutive)
 \import lect05 (filter)
@@ -151,21 +153,79 @@
 
 \func intersectionListDecSet {A : DecSet} (s1 s2 : ListSet A) : ListSet A \elim s1, s2
   | inR l1, inR l2 => inR (listIntersection l1 l2)
-  | inR a, eq al ar r i => eq (listIntersection a al) (listIntersection a ar) r i
-  | eq al ar r i, inR a => eq (listIntersection al a) (listIntersection ar a) r i
+  | inR a, eq al ar r i => eq (listIntersection a al) (listIntersection a ar) (lemma-EqList-left  {A} {a} r) i
+  | eq al ar r i, inR a => eq (listIntersection al a) (listIntersection ar a) (lemma-EqList-right {A} {a} r) i
   \where {
     \func elementInList {A : DecSet} (x : A) (l : List A) : Bool \elim l
       | nil => false
       | cons a l => \case decideEq a x \with {
         | yes _ => true
-        | no  _ => false
+        | no  _ => elementInList x l
+      }
+      \where {
+        \func elemInList->In {A : DecSet} {x : A} {l : List A} (p : elementInList x l = true) : In x l \elim l
+          | nil => \case p \with {}
+          | cons a l => \case decideEq a x \as dax, p : (\case dax \with {| yes _ => true | no _ => elementInList x l}) = true \with {
+            | yes e, q => here (inv e)
+            | no n , q => there (elemInList->In q)
+          }
+
+        \func elemInList->NotIn {A : DecSet} {x : A} {l : List A} (p : elementInList x l = false) : Not(In x l) \elim l
+          | nil => \lam i => \case i \with {}
+          | cons a l => \case decideEq a x \as dax, p : (\case dax \with {| yes _ => true | no _ => elementInList x l}) = false \with {
+            | yes e, q => \case q \with {}
+            | no n , q => \lam e => (\case e \with {
+              | here pp => n (inv pp)
+              | there i => elemInList->NotIn q i
+            })
+          }
       }
     -- для таких определений может быть сложно доказать данный факт
     \func listIntersection {A : DecSet} (l1 l2 : List A) : List A => (filter (\lam x => elementInList x l1) l2)
+      \where {
+        \func sym-li {A : DecSet} {l1 l2 : List A} : EqList (listIntersection l1 l2) (listIntersection l2 l1) \elim l1, l2
+          | nil, nil => \lam x => (\lam i => i, \lam i => i)
+          | nil, cons a l2 => {?}
+          | cons a l1, nil => {?}
+          | cons a l1, cons a1 l2 => {?}
+      }
 
-    \func listIntersection-sym {A : DecSet} {l1 l2 : List A} : (listIntersection l2 l1 = listIntersection l1 l2) \elim l1
-      | nil => unfold (listIntersection) {?}
-      | cons a l1 => unfold (listIntersection) {?}
+    -- вот это утверждение очень сложно доказать, хотя оно кажется очевидным. Всё из-за определения filter и listIntersection
+    \func lemma-EqList-left {A : DecSet} {xs l1 l2 : List A} (p : EqList l1 l2) : EqList (listIntersection xs l1) (listIntersection xs l2) \elim xs
+      | nil => {?}
+      | cons a xxs => {?}
+
+    \func lemma-EqList-right {A : DecSet} {xs l1 l2 : List A} (p : EqList l1 l2) : EqList (listIntersection l1 xs) (listIntersection l2 xs) \elim xs
+      | nil => unfold (listIntersection) (\lam x => (\lam id => id, \lam id => id))
+      | cons a xxs => unfold (listIntersection) (
+        \case elementInList a l1 \as ain1, elementInList a l2 \as ain2, idp : elementInList a l1 = ain1, idp  : elementInList a l2 = ain2
+        \return
+          EqList (\case ain1 \with {
+          | true => cons a (filter (\lam x => elementInList x l1) xxs)
+          | false => filter (\lam x => elementInList x l1) xxs
+          }) (\case ain2 \with {
+              | true => cons a (filter (\lam x => elementInList x l2) xxs)
+              | false => filter (\lam x => elementInList x l2) xxs
+            })
+              \with
+    {
+                | true,  true,  eq1, eq2 => \let rec => lemma-EqList-right {A} {xxs} p
+                                            \in \lam x => (\lam in => \case in \with {
+                                              | here p => here p
+                                              | there i => there ((rec x).1 i)
+                                            }, \lam in => \case in \with {
+                                              | here p => here p
+                                              | there i => there ((rec x).2 i)
+                                              })
+                | true,  false, eq1, eq2 => \let | in1 => elemInList->In eq1 | in2 => elemInList->NotIn eq2
+                                            \in \case in2 (((p a).1) in1) \with {}
+                | false, true,  eq1, eq2 => \let | in1 => elemInList->NotIn eq1 | in2 => elemInList->In eq2
+                                            \in \case in1 (((p a).2) in2) \with {}
+                | false, false, eq1, eq2 => lemma-EqList-right {A} {xxs} p
+              })
+        \where {
+          \open elementInList
+        }
 
     -- можно попробовать другой подход, только тут тип зависимых пар, а не список...:
     \func listIntersection' {A : DecSet} (l1 l2 : List A) => \Sigma (x : A) (In x l1 <-> In x l2)
@@ -173,6 +233,7 @@
 
 -- 7. Мы не можем определить функция size в общем случае, но мы можем определить предикат S -> Nat -> \Prop, соответствующий \lam xs n => size xs <= n.
 --    Задайте этот предикат и докажите, что он эквивалентен обычному определению, если A -- разрешимо и S -- конечно.
+\func size-as-injection-in-finite {S : SetSpec} (s : S) (n : Nat) => Trunc (\Sigma (f : \Pi(\Sigma(x : S.A)(isElem x s)) -> Fin n) (isInj f))
 
 -- Optional
 -- 8. Определите предикат isFin : \Type -> \Prop так, чтобы множество \Sigma (P : A -> \Prop) (isFin (\Sigma (a : A) (P A))) удовлетворяло FinSetSpec, определите этот инстанс.
