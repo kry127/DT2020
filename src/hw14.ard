@@ -183,17 +183,39 @@
     -- для таких определений может быть сложно доказать данный факт
     \func listIntersection {A : DecSet} (l1 l2 : List A) : List A => (filter (\lam x => elementInList x l1) l2)
       \where {
-        \func sym-li {A : DecSet} {l1 l2 : List A} : EqList (listIntersection l1 l2) (listIntersection l2 l1) \elim l1, l2
-          | nil, nil => \lam x => (\lam i => i, \lam i => i)
-          | nil, cons a l2 => {?}
-          | cons a l1, nil => {?}
-          | cons a l1, cons a1 l2 => {?}
+        \func sym-li {A : DecSet} (l1 l2 : List A) : EqList (listIntersection l1 l2) (listIntersection l2 l1) \elim l2
+          | nil => unfold (listIntersection) (\lam x => rewrite (falseFilter l1) (\lam i => i, \lam i => i))
+          | cons a2 ll2 => \lam x =>
+              (listIntersection-inPerm {A} {l1} {cons a2 ll2},
+               listIntersection-inPerm {A} {cons a2 ll2} {l1})
+
+        \func falseFilter {A : DecSet} (l : List A) : (filter (\lam _ => false) l) = nil \elim l
+          | nil => idp
+          | cons a l => falseFilter l
+
+        \func listIntersection-inPerm {A : DecSet} {l1 l2 : List A} {x : A} (p : In x (listIntersection l1 l2)) : In x (listIntersection l2 l1)
+          \elim l2
+            | nil => \case p \with {}
+            | cons a ll2 => \case decideEq x a \with {
+              | yes x=a => {?}
+              | no not-x=a => {?}
+            }
+
+
+        \func listIntersection-deduplicate {A : DecSet} {l1 l2 : List A} {x : A} (p : In x (listIntersection l1 l2)) : \Sigma (In x l1)(In x l2)
+          \elim l2
+            | nil => \case p \with {}
+            | cons a l2 => {?}
       }
 
+
     -- вот это утверждение очень сложно доказать, хотя оно кажется очевидным. Всё из-за определения filter и listIntersection
-    \func lemma-EqList-left {A : DecSet} {xs l1 l2 : List A} (p : EqList l1 l2) : EqList (listIntersection xs l1) (listIntersection xs l2) \elim xs
-      | nil => {?}
-      | cons a xxs => {?}
+    \func lemma-EqList-left {A : DecSet} {xs l1 l2 : List A} (p : EqList l1 l2) : EqList (listIntersection xs l1) (listIntersection xs l2)
+      =>  (\lam x => \let | l1xs<->l2xs => lemma-EqList-right {A} {xs} {l1} {l2} p x
+                          | l1xs<->xsl1 => listIntersection.sym-li {A} l1 xs x
+                          | l2xs<->xsl2 => listIntersection.sym-li {A} l2 xs x
+                     \in(\lam xsl1 => l2xs<->xsl2.1 (l1xs<->l2xs.1 (l1xs<->xsl1.2 xsl1)),
+                         \lam xsl2 => l1xs<->xsl1.1 (l1xs<->l2xs.2 (l2xs<->xsl2.2 xsl2))))
 
     \func lemma-EqList-right {A : DecSet} {xs l1 l2 : List A} (p : EqList l1 l2) : EqList (listIntersection l1 xs) (listIntersection l2 xs) \elim xs
       | nil => unfold (listIntersection) (\lam x => (\lam id => id, \lam id => id))
